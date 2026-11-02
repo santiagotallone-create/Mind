@@ -3,6 +3,8 @@ import type { Language, TurnDetectionConfig } from "../config.js";
 /** Configuración con la que se abre una sesión de voz. */
 export interface VoiceSessionConfig {
   language: Language;
+  /** Velocidad inicial de la voz del coach: 1 es normal, menos de 1 es más lento. */
+  speed?: number;
   /** Sensibilidad de la detección de turnos. Si falta, el motor usa sus valores por defecto. */
   turnDetection?: TurnDetectionConfig;
   /** Prompt y personalidad del coach (viene de src/coach/prompts). */

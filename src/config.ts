@@ -45,6 +45,20 @@ export function turnDetectionFromEnv(): TurnDetectionConfig {
   };
 }
 
+export const MIN_SPEED = 0.5;
+export const MAX_SPEED = 1.5;
+
+/** Limita la velocidad al rango permitido. */
+export function clampSpeed(value: number): number {
+  return Math.min(MAX_SPEED, Math.max(MIN_SPEED, value));
+}
+
+/** Velocidad inicial de la voz, ajustable desde .env con VOICE_SPEED (1 = normal). */
+export function speedFromEnv(): number {
+  const value = Number(process.env.VOICE_SPEED);
+  return value > 0 ? clampSpeed(value) : 1;
+}
+
 /** Voz y reconocimiento por idioma. Sumar un idioma = agregar una entrada y un prompt. */
 export const languageSettings: Record<Language, { voice: string; promptFile: string }> = {
   es: { voice: "marin", promptFile: "es.md" },

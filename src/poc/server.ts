@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { WebSocketServer, type WebSocket } from "ws";
 import { loadCoachPrompt } from "../coach/prompt.js";
-import { defaultConfig, languageSettings, turnDetectionFromEnv } from "../config.js";
+import { defaultConfig, languageSettings, speedFromEnv, turnDetectionFromEnv } from "../config.js";
 import { createVoiceProvider } from "../voice/index.js";
 import type { VoiceProvider } from "../voice/provider.js";
 
@@ -54,6 +54,7 @@ wss.on("connection", (ws) => {
           {
             language,
             turnDetection: turnDetectionFromEnv(),
+            speed: speedFromEnv(),
             instructions: await loadCoachPrompt(language),
             voice: languageSettings[language].voice,
           },

@@ -27,3 +27,9 @@
 - **Latencia percibida:** la latencia del motor se mide desde que detecta el fin de la frase, que ocurre tras el silencio configurado. Se muestra también la espera aproximada que siente el usuario (latencia más silencio).
 - **Primera medición (sesión de 846 s con `gpt-realtime-2.1`):** latencia del motor promedio de 857 ms; 66 746 tokens de entrada y 12 945 de salida. Sin desglose, el costo máximo estimado es de unos 3 USD (unos 0,21 USD/min), por encima del tope mensual si se usara 120 min/mes con el modelo grande. Con el modelo mini el máximo sería de unos 0,93 USD en esa sesión. El costo real hay que contrastarlo con la sección de uso de la cuenta de OpenAI.
 - **No incluido:** el costo de transcribir lo que dice el usuario (`gpt-4o-mini-transcribe`) se factura aparte y no se suma al estimado.
+
+## 2026-11-02 (velocidad de la voz)
+- **Hallazgo:** el coach no cambiaba su velocidad al pedírselo. Causa: la velocidad es un parámetro de la sesión (`audio.output.speed`, de 0.25 a 1.5, con valor 1 por defecto) que se aplica después de generar el audio, y el modelo no lo controla por sí solo. Solo puede cambiar entre turnos.
+- **Solución en dos niveles:** velocidad inicial configurable con `VOICE_SPEED` en `.env`, y herramienta `ajustar_velocidad` que el coach llama cuando la persona pide hablar más lento o más rápido. El motor aplica el cambio con `session.update` y el coach confirma de viva voz. El rango se limita a 0.5-1.5.
+- **Pendiente de validar en uso real:** el flujo de la herramienta (llamada, resultado y nueva respuesta) sigue la documentación, pero no se pudo probar contra el servicio.
+- **Nota de arquitectura:** la herramienta es específica de este motor. En el motor de cadena, la velocidad será un parámetro de la síntesis de voz, y la historia 2 también la necesitará para las meditaciones.
