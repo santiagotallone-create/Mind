@@ -58,7 +58,7 @@ export class OpenAIRealtimeProvider implements VoiceProvider {
         audio: {
           input: {
             format: { type: "audio/pcm", rate: 24000 },
-            turn_detection: { type: "semantic_vad" },
+            turn_detection: this.turnDetectionPayload(config),
             transcription: { model: TRANSCRIPTION_MODEL, language: config.language },
           },
           output: {
@@ -68,6 +68,19 @@ export class OpenAIRealtimeProvider implements VoiceProvider {
         },
       },
     });
+  }
+
+  private turnDetectionPayload(config: VoiceSessionConfig): Record<string, unknown> {
+    const td = config.turnDetection;
+    if (!td || td.mode === "semantic") {
+      return { type: "semantic_vad", eagerness: td?.eagerness ?? "auto" };
+    }
+    return {
+      type: "server_vad",
+      threshold: td.threshold,
+      silence_duration_ms: td.silenceMs,
+      prefix_padding_ms: 300,
+    };
   }
 
   sendAudio(chunk: ArrayBuffer): void {

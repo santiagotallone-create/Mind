@@ -1,8 +1,10 @@
-import type { Language } from "../config.js";
+import type { Language, TurnDetectionConfig } from "../config.js";
 
 /** Configuración con la que se abre una sesión de voz. */
 export interface VoiceSessionConfig {
   language: Language;
+  /** Sensibilidad de la detección de turnos. Si falta, el motor usa sus valores por defecto. */
+  turnDetection?: TurnDetectionConfig;
   /** Prompt y personalidad del coach (viene de src/coach/prompts). */
   instructions: string;
   /** Nombre de la voz del motor elegido. */
