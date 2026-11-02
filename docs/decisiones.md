@@ -39,3 +39,7 @@
 - **Modelo mini (`gpt-realtime-2.1-mini`), sesión de 2,1 min:** 0,0792 USD, unos 0,038 USD/min, proyección de 4,60 USD al mes por 120 min. Latencia del motor de 652 ms. Calidad de conversación valorada como suficiente.
 - **Decisión:** el modelo por defecto pasa a ser el mini. Cabe en el tope mensual de 10 euros con margen, sin diferencia de latencia y con calidad aceptable. El modelo grande queda disponible con `OPENAI_REALTIME_MODEL`.
 - **Reservas:** las sesiones de prueba son cortas (2 min). El costo por minuto puede subir en charlas largas, porque el contexto crece, y la transcripción de lo que dice el usuario se factura aparte. Falta contrastar con la sección de uso de la cuenta de OpenAI y medir una charla de unos 10 min.
+
+## 2026-11-02 (validación de la velocidad)
+- **Validado en uso real:** el coach baja la velocidad al pedírselo en plena charla (herramienta `ajustar_velocidad`). Historia 1 cerrada.
+- **Seguimientos pendientes:** contrastar el costo con la sección de uso de la cuenta de OpenAI y medir una charla de unos 10 minutos con el modelo mini.
