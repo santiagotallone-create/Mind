@@ -33,3 +33,9 @@
 - **Solución en dos niveles:** velocidad inicial configurable con `VOICE_SPEED` en `.env`, y herramienta `ajustar_velocidad` que el coach llama cuando la persona pide hablar más lento o más rápido. El motor aplica el cambio con `session.update` y el coach confirma de viva voz. El rango se limita a 0.5-1.5.
 - **Pendiente de validar en uso real:** el flujo de la herramienta (llamada, resultado y nueva respuesta) sigue la documentación, pero no se pudo probar contra el servicio.
 - **Nota de arquitectura:** la herramienta es específica de este motor. En el motor de cadena, la velocidad será un parámetro de la síntesis de voz, y la historia 2 también la necesitará para las meditaciones.
+
+## 2026-11-02 (comparación de modelos y cierre de la historia 1)
+- **Modelo grande (`gpt-realtime-2.1`), sesión de 2,0 min:** 0,2314 USD, unos 0,114 USD/min, proyección de 13,65 USD al mes por 120 min. Latencia del motor de 641 ms.
+- **Modelo mini (`gpt-realtime-2.1-mini`), sesión de 2,1 min:** 0,0792 USD, unos 0,038 USD/min, proyección de 4,60 USD al mes por 120 min. Latencia del motor de 652 ms. Calidad de conversación valorada como suficiente.
+- **Decisión:** el modelo por defecto pasa a ser el mini. Cabe en el tope mensual de 10 euros con margen, sin diferencia de latencia y con calidad aceptable. El modelo grande queda disponible con `OPENAI_REALTIME_MODEL`.
+- **Reservas:** las sesiones de prueba son cortas (2 min). El costo por minuto puede subir en charlas largas, porque el contexto crece, y la transcripción de lo que dice el usuario se factura aparte. Falta contrastar con la sección de uso de la cuenta de OpenAI y medir una charla de unos 10 min.

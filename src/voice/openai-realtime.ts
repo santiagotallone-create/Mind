@@ -9,7 +9,7 @@ import type {
   VoiceSessionConfig,
 } from "./provider.js";
 
-const DEFAULT_MODEL = "gpt-realtime-2.1";
+const DEFAULT_MODEL = "gpt-realtime-2.1-mini";
 const DEFAULT_VOICE = "marin";
 const TRANSCRIPTION_MODEL = "gpt-4o-mini-transcribe";
 
