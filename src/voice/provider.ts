@@ -14,13 +14,35 @@ export interface VoiceSessionConfig {
 /** Métricas de una sesión, para comparar motores. */
 export interface SessionMetrics {
   durationSeconds: number;
-  /** Latencia entre el fin de mi frase y el inicio de la respuesta, en ms. */
+  /** Latencia desde que el motor detecta el fin de mi frase hasta el inicio de la respuesta, en ms. */
   responseLatenciesMs: number[];
-  /** Tokens de audio consumidos, si el motor los informa. */
+  /**
+   * Latencia aproximada que siente el usuario: la anterior más el silencio que el sistema espera
+   * antes de dar por terminada la frase.
+   */
+  perceivedLatenciesMs?: number[];
+  model?: string;
+  /** Tokens consumidos, si el motor los informa. */
   inputTokens?: number;
   outputTokens?: number;
-  /** Costo estimado en USD. Solo se calcula si hay precios configurados. */
+  /** Desglose de tokens. Solo existe si el servicio entregó el detalle en todas las respuestas. */
+  tokens?: TokenBreakdown;
+  /** Costo estimado en USD, si se conocen los precios del modelo. */
   estimatedCostUsd?: number;
+  /**
+   * true si el costo es una cota superior (sin desglose, todo se cobra como audio sin caché);
+   * false si se calculó con el desglose real.
+   */
+  costIsUpperBound?: boolean;
+}
+
+export interface TokenBreakdown {
+  textInput: number;
+  audioInput: number;
+  cachedTextInput: number;
+  cachedAudioInput: number;
+  textOutput: number;
+  audioOutput: number;
 }
 
 /** Eventos que el motor entrega al resto del sistema. */

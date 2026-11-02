@@ -116,16 +116,38 @@ async function start() {
 }
 
 function showMetrics(m) {
+  const avgOf = (a) => (a.length ? Math.round(a.reduce((x, y) => x + y, 0) / a.length) : 0);
   const lat = m.responseLatenciesMs || [];
-  const avg = lat.length ? Math.round(lat.reduce((a, b) => a + b, 0) / lat.length) : 0;
+  const perceived = m.perceivedLatenciesMs || [];
+  const mins = m.durationSeconds / 60;
   const lines = [
-    'Duración: ' + m.durationSeconds + ' s',
+    'Modelo: ' + (m.model ?? '-'),
+    'Duración: ' + m.durationSeconds + ' s (' + mins.toFixed(1) + ' min)',
     'Respuestas medidas: ' + lat.length,
-    'Latencia promedio: ' + avg + ' ms',
-    'Latencias (ms): ' + lat.join(', '),
+    'Latencia del motor (promedio): ' + avgOf(lat) + ' ms',
+    'Espera que sientes (incluye el silencio previo): ' + avgOf(perceived) + ' ms',
+    'Latencias del motor (ms): ' + lat.join(', '),
     'Tokens de entrada: ' + (m.inputTokens ?? '-') + ' | salida: ' + (m.outputTokens ?? '-'),
-    'Costo estimado: ' + (m.estimatedCostUsd !== undefined ? '$' + m.estimatedCostUsd.toFixed(4) : 'sin precios configurados'),
   ];
+  if (m.tokens) {
+    const t = m.tokens;
+    lines.push(
+      'Entrada audio: ' + t.audioInput + ' | audio en caché: ' + t.cachedAudioInput +
+        ' | texto: ' + t.textInput + ' | texto en caché: ' + t.cachedTextInput,
+      'Salida audio: ' + t.audioOutput + ' | texto: ' + t.textOutput,
+    );
+  }
+  if (m.estimatedCostUsd !== undefined) {
+    const cost = m.estimatedCostUsd;
+    lines.push(
+      'Costo estimado: $' + cost.toFixed(4) + (m.costIsUpperBound ? ' (cota máxima: sin desglose de caché)' : ''),
+      'Costo por minuto: $' + (mins > 0 ? (cost / mins).toFixed(4) : '-') +
+        ' | proyección 120 min/mes: $' + (mins > 0 ? ((cost / mins) * 120).toFixed(2) : '-'),
+      'No incluye la transcripción del texto que dijiste (se factura aparte).',
+    );
+  } else {
+    lines.push('Costo estimado: precios de este modelo no cargados (src/voice/pricing.ts)');
+  }
   $('metrics').textContent = lines.join('\n');
   $('metrics').style.display = 'block';
 }

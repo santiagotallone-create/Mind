@@ -20,3 +20,10 @@
 - **Hallazgo 2, silencios:** el motor en vivo no sostiene silencios de varios segundos entre frases, ni del coach ni del usuario. Es una limitación del tipo de motor, pensado para conversar con fluidez. Decisión: los silencios de la meditación guiada no se resuelven con este motor. Se cubren en la historia 2: guion con pausas marcadas y audio armado por lotes insertando silencios de duración exacta.
 - **Hallazgo 3, ritmo y calidad:** el sonido y el ritmo del habla resultan aceptables en español. La voz concreta y el tono se definen en una fase posterior.
 - **Efecto sobre la arquitectura:** confirma la separación entre conversación en vivo (historia 1) y meditaciones pregeneradas (historia 2).
+
+## 2026-11-02 (medición de costo y latencia)
+- **Costo por modelo:** los precios de `gpt-realtime-2.1` y `gpt-realtime-2.1-mini` viven en `src/voice/pricing.ts` (verificados el 2026-11-02 en la documentación de OpenAI). Reemplazan a las variables `OPENAI_PRICE_*`.
+- **Desglose de tokens:** se separan audio y texto, con y sin caché, para calcular el costo real. Si el servicio no entrega el detalle, el costo se marca como cota máxima. El primer `usage` recibido se imprime en la consola del servidor para validar su forma real.
+- **Latencia percibida:** la latencia del motor se mide desde que detecta el fin de la frase, que ocurre tras el silencio configurado. Se muestra también la espera aproximada que siente el usuario (latencia más silencio).
+- **Primera medición (sesión de 846 s con `gpt-realtime-2.1`):** latencia del motor promedio de 857 ms; 66 746 tokens de entrada y 12 945 de salida. Sin desglose, el costo máximo estimado es de unos 3 USD (unos 0,21 USD/min), por encima del tope mensual si se usara 120 min/mes con el modelo grande. Con el modelo mini el máximo sería de unos 0,93 USD en esa sesión. El costo real hay que contrastarlo con la sección de uso de la cuenta de OpenAI.
+- **No incluido:** el costo de transcribir lo que dice el usuario (`gpt-4o-mini-transcribe`) se factura aparte y no se suma al estimado.

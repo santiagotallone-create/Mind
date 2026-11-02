@@ -18,9 +18,9 @@ Coach de mindfulness con voz e IA. Estado actual: prueba de concepto.
 ```
 git pull
 npm install
-cp .env.example .env   # y completa OPENAI_API_KEY (ya hecho si seguiste los pasos)
+# Solo la primera vez (si ya tienes .env, NO repitas esto: lo sobrescribe): cp .env.example .env
 npm run poc
 ```
 Luego abre http://localhost:3000 en Chrome, pulsa "Empezar", permite el micrófono y habla en español. Usa auriculares. Al pulsar "Terminar" ves la latencia y los tokens consumidos.
 
-Para estimar el costo, completa en `.env` los precios actuales (`OPENAI_PRICE_IN_PER_M` y `OPENAI_PRICE_OUT_PER_M`).
+El costo se calcula solo con los precios de `src/voice/pricing.ts` (verificados el 2026-11-02; revísalos de vez en cuando). Para probar el modelo económico, agrega `OPENAI_REALTIME_MODEL=gpt-realtime-2.1-mini` en `.env`.

@@ -1,6 +1,8 @@
 import WebSocket from "ws";
+import { realtimePrices } from "./pricing.js";
 import type {
   SessionMetrics,
+  TokenBreakdown,
   VoiceProvider,
   VoiceProviderEvents,
   VoiceSessionConfig,
@@ -22,6 +24,19 @@ export class OpenAIRealtimeProvider implements VoiceProvider {
   private speechStoppedAt?: number;
   private inputTokens = 0;
   private outputTokens = 0;
+  private model = DEFAULT_MODEL;
+  private silenceMs = 0;
+  private tokens: TokenBreakdown = {
+    textInput: 0,
+    audioInput: 0,
+    cachedTextInput: 0,
+    cachedAudioInput: 0,
+    textOutput: 0,
+    audioOutput: 0,
+  };
+  /** Pasa a false si alguna respuesta llega sin el detalle de tokens. */
+  private detailedUsage = true;
+  private loggedUsage = false;
 
   async start(config: VoiceSessionConfig, events: VoiceProviderEvents): Promise<void> {
     const apiKey = process.env.OPENAI_API_KEY;
@@ -29,6 +44,9 @@ export class OpenAIRealtimeProvider implements VoiceProvider {
       throw new Error("Falta OPENAI_API_KEY. Completa el archivo .env y reinicia el servidor.");
     }
     const model = process.env.OPENAI_REALTIME_MODEL || DEFAULT_MODEL;
+    this.model = model;
+    const td = config.turnDetection;
+    this.silenceMs = td && td.mode === "server" ? td.silenceMs : 0;
     this.events = events;
     this.startedAt = Date.now();
 
@@ -96,16 +114,56 @@ export class OpenAIRealtimeProvider implements VoiceProvider {
     const metrics: SessionMetrics = {
       durationSeconds: Math.round((Date.now() - this.startedAt) / 1000),
       responseLatenciesMs: this.latenciesMs,
+      perceivedLatenciesMs: this.latenciesMs.map((ms) => ms + this.silenceMs),
+      model: this.model,
       inputTokens: this.inputTokens,
       outputTokens: this.outputTokens,
     };
-    // El costo solo se estima si configuras los precios (USD por millón de tokens), para no inventar cifras.
-    const priceIn = Number(process.env.OPENAI_PRICE_IN_PER_M);
-    const priceOut = Number(process.env.OPENAI_PRICE_OUT_PER_M);
-    if (priceIn > 0 && priceOut > 0) {
-      metrics.estimatedCostUsd = (this.inputTokens * priceIn + this.outputTokens * priceOut) / 1_000_000;
+    if (this.detailedUsage) metrics.tokens = this.tokens;
+
+    // El costo solo se calcula si conocemos los precios del modelo, para no inventar cifras.
+    const p = realtimePrices[this.model];
+    if (p) {
+      const t = this.tokens;
+      metrics.costIsUpperBound = !this.detailedUsage;
+      metrics.estimatedCostUsd = this.detailedUsage
+        ? (t.textInput * p.textInput +
+            t.audioInput * p.audioInput +
+            t.cachedTextInput * p.cachedText +
+            t.cachedAudioInput * p.cachedAudio +
+            t.textOutput * p.textOutput +
+            t.audioOutput * p.audioOutput) /
+          1_000_000
+        : (this.inputTokens * p.audioInput + this.outputTokens * p.audioOutput) / 1_000_000;
     }
     return metrics;
+  }
+
+  /** Suma el uso de una respuesta. Si falta el detalle, el costo pasa a ser una cota superior. */
+  private addUsage(usage: any): void {
+    if (!this.loggedUsage) {
+      // Se muestra una vez para poder validar la forma real de los datos del servicio.
+      console.log("Ejemplo de usage del servicio:", JSON.stringify(usage));
+      this.loggedUsage = true;
+    }
+    this.inputTokens += usage.input_tokens ?? 0;
+    this.outputTokens += usage.output_tokens ?? 0;
+
+    const inDetails = usage.input_token_details;
+    const outDetails = usage.output_token_details;
+    if (!inDetails || !outDetails) {
+      this.detailedUsage = false;
+      return;
+    }
+    const cachedDetails = inDetails.cached_tokens_details;
+    const cachedAudio = cachedDetails ? (cachedDetails.audio_tokens ?? 0) : (inDetails.cached_tokens ?? 0);
+    const cachedText = cachedDetails ? (cachedDetails.text_tokens ?? 0) : 0;
+    this.tokens.cachedAudioInput += cachedAudio;
+    this.tokens.cachedTextInput += cachedText;
+    this.tokens.audioInput += Math.max(0, (inDetails.audio_tokens ?? 0) - cachedAudio);
+    this.tokens.textInput += Math.max(0, (inDetails.text_tokens ?? 0) - cachedText);
+    this.tokens.textOutput += outDetails.text_tokens ?? 0;
+    this.tokens.audioOutput += outDetails.audio_tokens ?? 0;
   }
 
   private send(message: unknown): void {
@@ -147,8 +205,7 @@ export class OpenAIRealtimeProvider implements VoiceProvider {
         this.speechStoppedAt = Date.now();
         break;
       case "response.done":
-        this.inputTokens += msg.response?.usage?.input_tokens ?? 0;
-        this.outputTokens += msg.response?.usage?.output_tokens ?? 0;
+        if (msg.response?.usage) this.addUsage(msg.response.usage);
         break;
       case "error": {
         const text: string = msg.error?.message ?? "Error desconocido del servicio de voz";
