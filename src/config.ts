@@ -14,6 +14,6 @@ export const defaultConfig: AppConfig = {
 
 /** Voz y reconocimiento por idioma. Sumar un idioma = agregar una entrada y un prompt. */
 export const languageSettings: Record<Language, { voice: string; promptFile: string }> = {
-  es: { voice: "por-definir", promptFile: "es.md" },
-  it: { voice: "por-definir", promptFile: "it.md" },
+  es: { voice: "marin", promptFile: "es.md" },
+  it: { voice: "marin", promptFile: "it.md" },
 };

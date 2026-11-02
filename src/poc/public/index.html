@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coach de mindfulness - prueba</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 640px; margin: 40px auto; padding: 0 16px; color: #222; }
+  h1 { font-size: 1.3rem; }
+  button { font-size: 1rem; padding: 12px 24px; border-radius: 8px; border: 0; background: #2f6f5e; color: #fff; cursor: pointer; }
+  button.stop { background: #a33; }
+  #status { margin: 16px 0; color: #555; }
+  #log { border-top: 1px solid #ddd; padding-top: 12px; }
+  .line { margin: 8px 0; line-height: 1.4; }
+  .user { color: #1a4f8b; }
+  .coach { color: #2f6f5e; }
+  #metrics { margin-top: 20px; padding: 12px; background: #f3f3f3; border-radius: 8px; white-space: pre-wrap; display: none; }
+</style>
+</head>
+<body>
+<h1>Coach de mindfulness: prueba de conversación</h1>
+<p>Usa auriculares para evitar que el micrófono capte la voz del coach.</p>
+<button id="toggle">Empezar</button>
+<div id="status">Listo para empezar.</div>
+<div id="log"></div>
+<div id="metrics"></div>
+
+<script>
+const SAMPLE_RATE = 24000;
+const $ = (id) => document.getElementById(id);
+let ws, ctx, micStream, workletNode, nextTime = 0, sources = [], running = false;
+
+const workletCode = `
+class Capture extends AudioWorkletProcessor {
+  constructor() { super(); this.buf = new Int16Array(2400); this.i = 0; }
+  process(inputs) {
+    const ch = inputs[0][0];
+    if (!ch) return true;
+    for (let k = 0; k < ch.length; k++) {
+      const s = Math.max(-1, Math.min(1, ch[k]));
+      this.buf[this.i++] = s < 0 ? s * 0x8000 : s * 0x7fff;
+      if (this.i === this.buf.length) {
+        this.port.postMessage(this.buf.slice().buffer);
+        this.i = 0;
+      }
+    }
+    return true;
+  }
+}
+registerProcessor('capture', Capture);`;
+
+function setStatus(text) { $('status').textContent = text; }
+function addLine(role, text) {
+  const div = document.createElement('div');
+  div.className = 'line ' + role;
+  div.textContent = (role === 'user' ? 'Tú: ' : 'Coach: ') + text;
+  $('log').appendChild(div);
+}
+
+function playPcm(buffer) {
+  const i16 = new Int16Array(buffer);
+  const f32 = new Float32Array(i16.length);
+  for (let k = 0; k < i16.length; k++) f32[k] = i16[k] / 32768;
+  const audioBuffer = ctx.createBuffer(1, f32.length, SAMPLE_RATE);
+  audioBuffer.copyToChannel(f32, 0);
+  const src = ctx.createBufferSource();
+  src.buffer = audioBuffer;
+  src.connect(ctx.destination);
+  const t = Math.max(ctx.currentTime, nextTime);
+  src.start(t);
+  nextTime = t + audioBuffer.duration;
+  sources.push(src);
+  src.onended = () => { sources = sources.filter((s) => s !== src); };
+}
+
+function stopPlayback() {
+  sources.forEach((s) => { try { s.stop(); } catch {} });
+  sources = [];
+  nextTime = 0;
+}
+
+async function start() {
+  running = true;
+  $('toggle').textContent = 'Terminar';
+  $('toggle').classList.add('stop');
+  $('metrics').style.display = 'none';
+  $('log').innerHTML = '';
+  setStatus('Conectando...');
+
+  ctx = new AudioContext({ sampleRate: SAMPLE_RATE });
+  micStream = await navigator.mediaDevices.getUserMedia({
+    audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 },
+  });
+  const url = URL.createObjectURL(new Blob([workletCode], { type: 'application/javascript' }));
+  await ctx.audioWorklet.addModule(url);
+  workletNode = new AudioWorkletNode(ctx, 'capture');
+  ctx.createMediaStreamSource(micStream).connect(workletNode);
+
+  ws = new WebSocket('ws://' + location.host);
+  ws.binaryType = 'arraybuffer';
+  workletNode.port.onmessage = (e) => {
+    if (ws.readyState === WebSocket.OPEN && ready) ws.send(e.data);
+  };
+  let ready = false;
+  ws.onopen = () => ws.send(JSON.stringify({ type: 'start' }));
+  ws.onmessage = (e) => {
+    if (e.data instanceof ArrayBuffer) { playPcm(e.data); return; }
+    const msg = JSON.parse(e.data);
+    if (msg.type === 'ready') { ready = true; setStatus('Habla cuando quieras. El coach te escucha.'); }
+    else if (msg.type === 'transcript') addLine(msg.role, msg.text);
+    else if (msg.type === 'interrupted') stopPlayback();
+    else if (msg.type === 'error') { setStatus('Error: ' + msg.message); cleanup(false); }
+    else if (msg.type === 'metrics') showMetrics(msg.metrics);
+  };
+  ws.onclose = () => { if (running) cleanup(false); };
+}
+
+function showMetrics(m) {
+  const lat = m.responseLatenciesMs || [];
+  const avg = lat.length ? Math.round(lat.reduce((a, b) => a + b, 0) / lat.length) : 0;
+  const lines = [
+    'Duración: ' + m.durationSeconds + ' s',
+    'Respuestas medidas: ' + lat.length,
+    'Latencia promedio: ' + avg + ' ms',
+    'Latencias (ms): ' + lat.join(', '),
+    'Tokens de entrada: ' + (m.inputTokens ?? '-') + ' | salida: ' + (m.outputTokens ?? '-'),
+    'Costo estimado: ' + (m.estimatedCostUsd !== undefined ? '$' + m.estimatedCostUsd.toFixed(4) : 'sin precios configurados'),
+  ];
+  $('metrics').textContent = lines.join('\n');
+  $('metrics').style.display = 'block';
+}
+
+function cleanup(askMetrics) {
+  running = false;
+  if (askMetrics && ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'stop' }));
+  micStream && micStream.getTracks().forEach((t) => t.stop());
+  workletNode && workletNode.disconnect();
+  stopPlayback();
+  ctx && ctx.close();
+  $('toggle').textContent = 'Empezar';
+  $('toggle').classList.remove('stop');
+}
+
+$('toggle').onclick = () => {
+  if (!running) start().catch((err) => { setStatus('Error: ' + err.message); cleanup(false); });
+  else { setStatus('Sesión terminada.'); cleanup(true); }
+};
+</script>
+</body>
+</html>

@@ -5,10 +5,16 @@
   "type": "module",
   "description": "Coach de mindfulness con voz e IA: prueba de concepto",
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "poc": "tsx --env-file=.env src/poc/server.ts"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "@types/ws": "^8.18.2",
+    "tsx": "^4.23.15",
     "typescript": "^5.6.0"
+  },
+  "dependencies": {
+    "ws": "^8.22.1"
   }
 }
