@@ -43,3 +43,15 @@
 ## 2026-11-02 (validación de la velocidad)
 - **Validado en uso real:** el coach baja la velocidad al pedírselo en plena charla (herramienta `ajustar_velocidad`). Historia 1 cerrada.
 - **Seguimientos pendientes:** contrastar el costo con la sección de uso de la cuenta de OpenAI y medir una charla de unos 10 minutos con el modelo mini.
+
+## 2026-11-03 (historia 2: meditaciones con voz sintética)
+- **Guiones escritos por Claude en el chat, no por una API.** Para el MVP los guiones se escriben en la conversación y se guardan en `meditaciones/`. La suscripción personal no sirve para que una app llame a Claude por su cuenta; eso requeriría la API de Anthropic, con otra clave y facturación. La generación automática de guiones queda fuera de esta prueba; cuando haga falta, se agrega detrás de una interfaz propia, como la voz.
+- **Flujo:** `npm run meditacion -- <guion>` lee el guion, convierte cada bloque de texto en audio, une los bloques con silencios generados por el programa y guarda un WAV con su informe (`salida/`). Es manual por ahora; la misma pieza se podrá llamar desde un servidor cuando exista la app.
+- **Silencios exactos:** las pausas `[pausa N]` las inserta el programa como muestras en cero, no el servicio de voz (que no sostiene silencios largos, ver hallazgo 2 de la historia 1). Verificado con pruebas: una pausa de 4 s son exactamente 96 000 muestras a 24 kHz.
+- **Servicio de voz detrás de `SpeechProvider`** (`src/meditation/speech.ts`). Implementaciones: OpenAI TTS (`gpt-4o-mini-tts`) y una voz simulada para probar estructura sin clave ni costo.
+- **Aviso importante, modelos de voz en retirada:** según la documentación de OpenAI consultada el 2026-11-03, `tts-1`, `tts-1-hd` y `gpt-4o-mini-tts` dejan de funcionar el **2027-01-06**, y se recomienda migrar a `gpt-realtime-2.1-mini` por la API Realtime. Se usa `gpt-4o-mini-tts` para esta prueba porque es el camino más simple y barato para evaluar voz y silencios, pero no sirve como base definitiva. Pendiente: evaluar el reemplazo (Realtime en modo texto a audio, u otro servicio como ElevenLabs, Google o Azure).
+- **Formato de audio:** se pide WAV y se lee su cabecera (frecuencia, canales) en lugar de suponer el formato del PCM, que la documentación no especifica.
+- **Costos:** precios por token verificados el 2026-11-03: texto de entrada 0,60 USD por millón y audio de salida 12 USD por millón. La documentación no da la equivalencia en minutos, así que el programa muestra una referencia aproximada de 0,015 USD por minuto de audio, marcada como no verificada; el dato real está en la sección de uso de la cuenta de OpenAI.
+- **Caché de audios:** cada bloque de voz se guarda por texto, voz, velocidad e instrucciones. Cambiar solo las pausas no vuelve a pagar la voz.
+- **Idioma:** el guion es un archivo por idioma. El italiano se suma con otro guion, sin tocar el código.
+- **Primer guion:** `respiracion-5min.md`, de 5 minutos, con unos 2 min 08 s de voz y 2 min 52 s de silencio (estimado con la voz simulada; la duración real de la voz puede variar).

@@ -6,7 +6,8 @@
   "description": "Coach de mindfulness con voz e IA: prueba de concepto",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "poc": "tsx --env-file=.env src/poc/server.ts"
+    "poc": "tsx --env-file=.env src/poc/server.ts",
+    "meditacion": "tsx --env-file=.env src/meditation/cli.ts"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
