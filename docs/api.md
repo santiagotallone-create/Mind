@@ -23,7 +23,8 @@ El token de acceso dura 15 minutos. La app lo renueva sola con `/auth/token`. Si
 |---|---|
 | `GET /quota` | `{ state: sin_iniciar \| disponible \| agotado, secondsTotal, secondsRemaining, minutesRemaining, periodStartsAt, renewsOn }` |
 
-- `renewsOn` es una fecha explícita o `null` si aún no hubo primer uso.
+- `sin_iniciar`: no hay periodo abierto (aún no hubo charla, o el último periodo venció). Saldo completo y `renewsOn: null`. La primera charla abre un periodo nuevo de 1 mes.
+- `renewsOn` es el vencimiento del periodo abierto, como fecha explícita; `null` si no hay periodo abierto.
 - El saldo exacto se muestra solo en Ajustes (historia #15). La pantalla de la charla no lo muestra.
 
 ## Charla en vivo
