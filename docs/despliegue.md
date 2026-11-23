@@ -28,8 +28,16 @@ gcloud run deploy mind-server \
 - Los secretos se crean antes en Secret Manager.
 - `--allow-unauthenticated` es necesario para que la app llegue al servidor; la protección está en el código de invitación y los tokens.
 
+### Si el despliegue falla con «does not have storage.objects.get access»
+En proyectos nuevos la cuenta de servicio de Compute Engine no puede leer el código fuente. Se arregla una vez (sustituir el ID y el número del proyecto, que aparece en el mensaje de error):
+```
+gcloud projects add-iam-policy-binding ID-DEL-PROYECTO --member=serviceAccount:NUMERO-DEL-PROYECTO-compute@developer.gserviceaccount.com --role=roles/cloudbuild.builds.builder
+gcloud projects add-iam-policy-binding ID-DEL-PROYECTO --member=serviceAccount:NUMERO-DEL-PROYECTO-compute@developer.gserviceaccount.com --role=roles/storage.objectViewer
+```
+Esperar un minuto y repetir el despliegue. Si `gcloud services enable` da error 429, esperar un minuto y repetirlo. Pegar los comandos de a una línea.
+
 ## 3. Comprobación
-- `GET https://<url-del-servidor>/healthz` debe responder `{"status":"ok"}`.
+- `GET https://<url-del-servidor>/health` debe responder `{"status":"ok"}`. No usar `/healthz`: Cloud Run reserva esa ruta y responde 404 sin llegar al servidor.
 
 ## 4. La app (PWA)
 El alojamiento de la PWA se decide en la historia #4 con el framework elegido por el frontend. Opciones sin costo: servirla desde el mismo servidor o desde una web estática gratuita.
