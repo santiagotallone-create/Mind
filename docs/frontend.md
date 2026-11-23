@@ -1,6 +1,6 @@
 # Frontend de la PWA: revisión previa y propuesta de framework
 
-Historia #4. Documento del agente frontend, escrito **antes de programar**. Estado: **pendiente de respuestas de Santi**. No hay código de la app en esta rama. Cuando se aprueben las propuestas, las decisiones firmes pasan a `docs/decisiones.md` y el framework se registra en `docs/arquitectura.md` (sección «Decisiones que siguen abiertas»).
+Historia #4. Documento del agente frontend, escrito **antes de programar**. Estado: **respondidas por Santi las dudas 1 a 5 y 7 a 18 (el nombre y el ícono del punto 2 los entregará más adelante); pendientes la 6 y la 19 a 29**. No hay código de la app en esta rama. Cuando se aprueben las propuestas, las decisiones firmes pasan a `docs/decisiones.md` y el framework se registra en `docs/arquitectura.md` (sección «Decisiones que siguen abiertas»).
 
 Se revisaron: `docs/arquitectura.md`, `docs/api.md`, `docs/decisiones.md`, `src/contract/` (zod), el issue #4, los documentos del proyecto (`requisitos-mvp`, `ux-personas-decisiones`, `ui-decisiones`, `traspaso-ui-al-analista`, `historias-mvp-olas`) y el prototipo clicable (31 pantallas).
 
@@ -21,18 +21,18 @@ Marcadas con ★ las que bloquean empezar #4 (esqueleto y sistema de diseño). L
 
 ### B. Diseño: incoherencias y huecos (UI/UX)
 
-7. **«Abrir ajustes del teléfono» no se puede hacer en una web.** Una PWA no puede abrir los ajustes del sistema (en el prototipo el botón solo simula que el micrófono quedó activo). *Propuesta de cambio: el texto explica dónde activarlo y el botón pasa a «Reintentar», que vuelve a pedir el permiso. Requiere aprobación de Santi y copy del UI.*
-8. **Audio no listo, sin estado diseñado.** Tras crear un plan, los audios pueden estar `pendiente` o `generando`; la duración elegida puede no estar descargada; puede no haber conexión o espacio. Es parte del flujo crítico de activación (entrevista → plan → «Empezar sesión 1»). Falta el estado «Preparando tu meditación…», con error y «Reintentar». *Propuesta: reutilizar el patrón de «Armando tu plan…» y el de «Se cortó la conexión»; el UI diseña el copy.*
+7. **«Abrir ajustes del teléfono» no se puede hacer en una web. Resuelta por Santi (23/11).** El texto de «Sin acceso al micrófono» explica cómo activar el permiso en Chrome y el botón pasa a «Reintentar», que vuelve a comprobar el permiso. Es un cambio sobre el diseño aprobado: el UI debe actualizar el prototipo y escribir el texto.
+8. **Audio no listo. Resuelta por Santi (23/11): fuera del MVP.** No es un escenario factible en el MVP, así que no se diseña esta pantalla. Supuesto de trabajo: una sesión visible en la app tiene su audio disponible.
 9. ★ **Estados genéricos sin diseño:** carga (Cloud Run tarda 1 a 3 s en frío), error de red fuera de la charla, lista vacía de planes, aviso de versión nueva. *Propuesta mínima: indicador discreto de carga, mensaje «No pudimos cargar. Reintentar» en línea, y actualizar la app en el siguiente arranque (nunca en medio de una meditación).*
-10. **Fin de charla sin pantalla:** `ended` con `inactividad` (5 min sin actividad; ¿cuenta la pausa?), `error` no reintentable y `ended` con `corte` tras agotar reintentos. *Propuesta: reutilizar «Se cortó la conexión» con textos propios.*
-11. **Regla de regreso incompleta.** En el prototipo, «‹ Atrás» de «Antes de empezar» y la ✕ del reproductor van siempre al detalle del plan, pero también se llega desde Favoritas (en Planes), y no hay plan de origen. *Propuesta: volver siempre a la pantalla desde la que se abrió.*
-12. **✕ en plena meditación.** Sale sin confirmar. ¿Cuenta como hecha (D9 propone «al llegar al final»)? ¿Se retoma? *Propuesta: no cuenta, no se retoma, sin confirmación.*
-13. **Sesiones pendientes tocables o no.** `ui-decisiones` dice «cada sesión se puede tocar», el prototipo abre todas, y D10 propone que las futuras no se abran. *Propuesta: tocables las hechas y la siguiente; las pendientes, no (D10).*
-14. **Duración y técnicas de un plan.** El diseño muestra «5 sesiones · 10 min» y técnicas como «Respiración lenta, relajación», pero las sesiones del ejemplo mezclan 5, 10 y 15 min, el contrato no tiene duración de plan y `technique` solo admite cinco valores (`respiracion`, `escaneo_corporal`, `atencion_plena`, `visualizacion`, `otra`). *Propuesta: duración típica = mediana de `suggestedMinutes`; técnicas = etiquetas de esos cinco valores (`otra` no se muestra).*
+10. **Fin de charla por inactividad o error no reintentable. Resuelta por Santi (23/11): fuera del MVP.** Sin pantalla nueva.
+11. **Regla de regreso. Resuelta por Santi (23/11): está bien como en el prototipo.** «‹ Atrás» de «Antes de empezar» vuelve al detalle del plan; si la sesión se abrió desde Favoritas, al detalle del plan de esa sesión (interpretación mía, con el `planId` de la sesión).
+12. **✕ en plena meditación. Resuelta por Santi (23/11): vuelve a la lista de Planes** (el prototipo hoy vuelve al detalle del plan: el UI debe actualizarlo). Por defecto, sin objeción: no cuenta como hecha, no se retoma y no pide confirmación.
+13. **Sesiones pendientes. Resuelta por Santi (23/11): no se pueden tocar.** Se abren las hechas y la siguiente.
+14. **Duración y técnicas de un plan. Resuelta por Santi (23/11), según la propuesta:** duración = la más habitual (mediana de `suggestedMinutes`) y técnicas = las etiquetas de los cinco valores del contrato, sin mostrar `otra`.
 15. ★ **Contraste de los bordes de controles.** Todos los textos pasan AA (mínimo 5,45:1). Pero la línea `#3A4561` mide 1,60:1 sobre el fondo y 1,36:1 sobre las tarjetas, por debajo del 3:1 que pide WCAG 1.4.11 para identificar campos y opciones (campo de texto, selector 5/10/15, opciones de experiencia). *Propuesta: usar `#727B94` (3,07:1 sobre tarjeta, 3,62:1 sobre fondo) solo en el borde de controles interactivos; el resto de líneas queda igual. Es un cambio de diseño: lo decide Santi.*
 16. ★ **Movimiento reducido.** El issue pide detener todas las animaciones, pero hoy «escuchando», «hablando» y «en pausa» se distinguen solo por la animación. *Propuesta: línea de voz plana y esfera quieta, con el texto («Habla, te escucho.» / «En pausa») como único indicador. El UI debe confirmarlo.*
-17. **Voz del coach y velocidad.** El UX retiró el ajuste «Voz del coach» hasta que backend y frontend lo confirmen. El contrato tiene `voiceSpeed` y el coach lo cambia con la herramienta `ajustar_velocidad`. *Propuesta: sin pantalla en el MVP; el coach es quien lo modifica.*
-18. **Sin conexión.** *Propuesta:* marcar favorita y terminar una sesión se guardan en el teléfono y se envían al reconectar (cola de escritura); editar perfil y borrar datos requieren conexión y avisan en línea. Sin diseño nuevo salvo el mensaje.
+17. **Voz del coach y velocidad. Resuelta por Santi (23/11): no está prevista en el MVP.** Sin pantalla de ajuste; el coach cambia la velocidad con su herramienta.
+18. **Sin conexión. Resuelta por Santi (23/11), según la propuesta:** marcar favorita y terminar una sesión se guardan en el teléfono y se envían al reconectar; editar perfil y borrar datos requieren conexión y avisan en línea.
 
 ### C. Contrato y backend
 
