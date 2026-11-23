@@ -1,6 +1,6 @@
 # Mind
 
-Coach de mindfulness con voz e IA. Estado actual: prueba de concepto.
+Coach de mindfulness con voz e IA. Estado actual: prueba de concepto y fundaciones del MVP (Ola 1).
 
 ## Historias de la PoC
 1. Conversación en vivo con el coach en español (issue #1).
@@ -15,6 +15,10 @@ Coach de mindfulness con voz e IA. Estado actual: prueba de concepto.
 - `src/metrics/`: registro de latencia y costo.
 - `src/config.ts`: idioma y motor activos.
 - `docs/decisiones.md`: decisiones técnicas.
+- `docs/arquitectura.md`, `docs/api.md`, `docs/despliegue.md`: arquitectura del MVP, contrato de API y despliegue gratuito.
+- `src/contract/`: esquemas de la API compartidos por frontend y backend.
+- `src/server/`: servidor del MVP (Fastify).
+- `supabase/migrations/`: modelo de datos.
 
 ## Probar la conversación (historia 1)
 ```
@@ -37,3 +41,11 @@ El audio queda en `salida/respiracion-5min.wav`, junto con un `.json` con duraci
 Formato del guion (`meditaciones/*.md`): una cabecera opcional entre `---` (titulo, voz, velocidad, instrucciones), una línea de texto por bloque, `[pausa N]` para N segundos de silencio exacto, y `#` para comentarios.
 
 Variables opcionales en `.env`: `TTS_VOICE` (por defecto `marin`), `TTS_SPEED` (1 = normal) y `TTS_MODEL` (por defecto `gpt-4o-mini-tts`).
+
+## Desarrollo del MVP
+```
+npm install
+npm run typecheck
+npm test
+npm run dev:server   # servidor en http://localhost:8080 (necesita .env)
+```
