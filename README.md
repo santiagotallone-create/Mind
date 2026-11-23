@@ -17,7 +17,9 @@ Coach de mindfulness con voz e IA. Estado actual: prueba de concepto y fundacion
 - `docs/decisiones.md`: decisiones técnicas.
 - `docs/arquitectura.md`, `docs/api.md`, `docs/despliegue.md`: arquitectura del MVP, contrato de API y despliegue gratuito.
 - `src/contract/`: esquemas de la API compartidos por frontend y backend.
-- `src/server/`: servidor del MVP (Fastify).
+- `src/server/`: servidor del MVP (Fastify): autenticación, límites de uso y rutas.
+- `src/quota/`: bolsón de coaching (periodos, servicio y medidor de tiempo activo).
+- `src/store/`: acceso a datos (Supabase y versión en memoria para pruebas).
 - `supabase/migrations/`: modelo de datos.
 
 ## Probar la conversación (historia 1)
