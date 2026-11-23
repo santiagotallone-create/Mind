@@ -50,7 +50,7 @@ Todas las tablas llevan `user_id` y el servidor filtra siempre por él. Migraci�
 | `session_audios` | Audio generado por duración (5, 10 o 15) | `session_id`, `minutes`, `storage_path`, `bytes`, `status` (pendiente, generando, lista, error), `script_hash` |
 | `talks` | Cada charla con el coach | `type`, `plan_id`, `session_id`, `started_at`, `ended_at`, `active_seconds`, `end_reason`, `metrics` (latencia, tokens, costo) |
 | `coach_memory` | Resumen interno por charla. **Nunca se expone por la API** | `talk_id`, `summary` |
-| `quota_periods` | Bolsón (F5) | `starts_at`, `ends_at`, `seconds_total` (7200), `seconds_used` |
+| `quota_periods` | Bolsón (F5): un periodo por activación | `starts_at`, `ends_at`, `seconds_total` (7200), `seconds_used` |
 | `settings` | Ajustes | `locale`, `timezone`, `voice_speed` |
 
 Notas:
@@ -61,10 +61,11 @@ Notas:
 
 ## Regla del bolsón (F5)
 
-- 120 minutos por periodo. El periodo empieza en el **primer uso** y dura 1 mes.
-- Periodos siguientes: se anclan a la fecha de ese primer uso (aniversario). Si el mes no tiene el día, vence el último día del mes. No se acumula saldo.
-- El estado `sin_iniciar` existe hasta la primera charla: saldo completo y sin fecha de renovación.
-- La fecha de renovación se entrega como fecha explícita (`renewsOn`, `AAAA-MM-DD` en la zona horaria del usuario). La app la formatea desde el catálogo de textos: nunca «el mes próximo».
+- 120 minutos por periodo. Sin fecha fija del calendario: el periodo empieza cuando el usuario **activa el bolsón** con su primera charla y dura 1 mes (si el mes no tiene ese día, vence el último día del mes). No se acumula saldo.
+- Cada periodo se activa igual: al vencer uno, el bolsón queda completo y el siguiente mes empieza en la primera charla posterior. Entre el vencimiento y esa charla no hay periodo abierto.
+- Estado `sin_iniciar`: no hay periodo abierto (nunca hubo charla, o el último ya venció). Saldo completo y sin fecha de renovación.
+- Estado `agotado`: saldo en cero dentro de un periodo abierto. La fecha en que vuelve el coach es el vencimiento de ese periodo.
+- La fecha de renovación (`renewsOn`, `AAAA-MM-DD` en la zona horaria del usuario) es el vencimiento del periodo abierto. La app la formatea desde el catálogo de textos: nunca «el mes próximo».
 - El servidor rechaza abrir una charla con saldo cero (ticket de voz → 403 `quota_exhausted`). Si se agota en plena charla, el coach se despide hablando y el servidor cierra con `reason: "quota_exhausted"`.
 - La implementación y los tests de borde son de la historia #6.
 
@@ -110,4 +111,3 @@ Notas:
 - Framework de la PWA (React, Svelte u otro): lo elige el frontend en #4 y lo registra aquí.
 - D3 y D4 (guiones y síntesis de voz): historia #7.
 - D8 (borrado y bolsón): historia #15.
-- Confirmar con Santi la regla de aniversario del bolsón (ver `docs/decisiones.md`).

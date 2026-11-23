@@ -109,7 +109,7 @@ create table coach_memory (
 );
 create index coach_memory_user_idx on coach_memory(user_id, created_at);
 
--- Bolsón: el periodo empieza en el primer uso y dura 1 mes (ver docs/arquitectura.md).
+-- Bolsón: un periodo por activación. Empieza con la primera charla y dura 1 mes, sin fecha fija del calendario (ver docs/arquitectura.md).
 create table quota_periods (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references users(id) on delete cascade,
