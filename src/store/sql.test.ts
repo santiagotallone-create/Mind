@@ -23,6 +23,7 @@ before(async () => {
   // gen_random_uuid() ya viene en Postgres 13+; la extensión pgcrypto no está en PGlite.
   await db.exec(migration("0001_init.sql").replace("create extension if not exists pgcrypto;", ""));
   await db.exec(migration("0002_bolson.sql"));
+  await db.exec(migration("0003_charla_en_vivo.sql"));
 });
 
 after(async () => {
@@ -150,4 +151,35 @@ test("borrar un usuario borra su bolsón y sus charlas", async () => {
   await db.query("delete from users where id = $1", [userId]);
   assert.equal((await db.query("select 1 from quota_periods where user_id = $1", [userId])).rows.length, 0);
   assert.equal((await db.query("select 1 from talks where user_id = $1", [userId])).rows.length, 0);
+});
+
+test("la migración 0003 se aplica y se puede repetir; agrega la transcripción provisoria", async () => {
+  await db.exec(migration("0003_charla_en_vivo.sql"));
+  const columns = await db.query("select 1 from information_schema.columns where table_name = 'talks' and column_name = 'transcript'");
+  assert.equal(columns.rows.length, 1);
+});
+
+test("coach_memory: un solo resumen por charla; guardar de nuevo lo reemplaza (upsert por talk_id)", async () => {
+  const { userId } = await newUser();
+  const talk = await newTalk(userId);
+  const upsert = (summary: string) =>
+    db.query(
+      "insert into coach_memory (user_id, talk_id, summary) values ($1, $2, $3) on conflict (talk_id) do update set summary = excluded.summary",
+      [userId, talk, summary],
+    );
+  await upsert("primero");
+  await upsert("segundo");
+  const rows = await db.query<any>("select summary from coach_memory where talk_id = $1", [talk]);
+  assert.deepEqual(rows.rows.map((r) => r.summary), ["segundo"]);
+  await assert.rejects(db.query("insert into coach_memory (user_id, talk_id, summary) values ($1, $2, 'duplicado')", [userId, talk]));
+});
+
+test("al borrar la charla el resumen queda (talk_id pasa a null) y la transcripción se guarda como json", async () => {
+  const { userId } = await newUser();
+  const talk = await newTalk(userId);
+  await db.query("update talks set transcript = $2::jsonb where id = $1", [talk, JSON.stringify([{ role: "user", text: "Hola", at: T0 }])]);
+  const stored = await db.query<any>("select transcript from talks where id = $1", [talk]);
+  assert.equal(stored.rows[0].transcript[0].text, "Hola");
+  await db.query("update talks set transcript = null where id = $1", [talk]);
+  assert.equal((await db.query<any>("select transcript from talks where id = $1", [talk])).rows[0].transcript, null);
 });

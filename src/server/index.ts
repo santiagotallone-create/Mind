@@ -9,3 +9,14 @@ app.listen({ port: env.port, host: "0.0.0.0" }).catch((error) => {
   app.log.error(error);
   process.exit(1);
 });
+
+// Cloud Run avisa con SIGTERM antes de apagar la instancia: se cierran las charlas abiertas y se guarda lo consumido.
+for (const signal of ["SIGTERM", "SIGINT"] as const) {
+  process.once(signal, () => {
+    app.log.info({ signal }, "Apagando el servidor");
+    app
+      .close()
+      .catch((error) => app.log.error(error))
+      .finally(() => process.exit(0));
+  });
+}

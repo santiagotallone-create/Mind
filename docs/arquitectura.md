@@ -24,6 +24,7 @@ Historia #3. Las decisiones y sus motivos están en `docs/decisiones.md` (entrad
 
 - El frontend **solo** habla con nuestro servidor. Nunca con Supabase ni con los proveedores. Las claves viven solo en el servidor.
 - El servidor es sin estado entre peticiones, salvo las sesiones de voz abiertas (en memoria, con respaldo del consumo en base de datos cada pocos segundos para sobrevivir a un reinicio).
+- Charla en vivo (#5): `VoiceService` reparte los tickets y guarda las charlas abiertas en memoria; cada `VoiceSession` aplica todas las reglas de tiempo (pausa, reconexión, inactividad, despedida, tope) en un `tick()` de 1 segundo, así se prueban con un reloj falso. El motor de voz está detrás de la interfaz `VoiceProvider` (hoy OpenAI Realtime). Los tickets y las charlas viven en memoria, válido mientras `--max-instances 1`.
 - Cloud Run escala a cero: la primera petición tras un rato inactivo tarda 1 a 3 segundos. La app avisa al servidor al abrir el Inicio para calentarlo antes de que el usuario toque «Hablar».
 
 ## Identidad sin cuentas
@@ -97,6 +98,7 @@ Notas:
 - Tokens de acceso de 15 minutos; renovación revocable (`devices.revoked_at`).
 - Ticket de voz de un solo uso y 60 segundos de vida: la URL del WebSocket no contiene el token de acceso.
 - RLS activo y sin políticas en todas las tablas: aunque se filtrara la clave pública de Supabase, no se podría leer nada.
+- WebSocket de voz: se valida el origen contra `ALLOWED_ORIGINS` (si está definido), 30 conexiones por minuto y por IP, mensajes de hasta 256 KB y ping cada 15 s para detectar conexiones muertas. CORS de la API solo para esos orígenes.
 - No se guarda el audio del usuario, solo la transcripción necesaria para la memoria (D13). Lo que digan los textos de privacidad debe salir de aquí.
 - Validación de todo lo que entra con los esquemas de `src/contract/`.
 

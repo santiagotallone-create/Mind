@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import type { QuotaService } from "../quota/service.js";
+import type { VoiceService } from "../voice/service.js";
 import type { DataStore } from "../store/types.js";
 import type { ServerEnv } from "./env.js";
 import type { Identity, TokenService } from "./tokens.js";
@@ -11,6 +12,7 @@ export interface AppContext {
   clock: () => Date;
   tokens: TokenService;
   quota: QuotaService;
+  voice: VoiceService;
 }
 
 declare module "fastify" {
