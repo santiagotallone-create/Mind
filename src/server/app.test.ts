@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { buildApp } from "./app.js";
 
-test("healthz responde ok", async () => {
+test("health responde ok", async () => {
   const app = buildApp();
-  const res = await app.inject({ method: "GET", url: "/healthz" });
+  const res = await app.inject({ method: "GET", url: "/health" });
   assert.equal(res.statusCode, 200);
   assert.deepEqual(res.json(), { status: "ok" });
   await app.close();

@@ -4,7 +4,7 @@ import Fastify from "fastify";
 export function buildApp() {
   const app = Fastify({ logger: process.env.NODE_ENV !== "test" });
 
-  app.get("/healthz", async () => ({ status: "ok" }));
+  app.get("/health", async () => ({ status: "ok" }));
   app.get("/v1/version", async () => ({ name: "mind", apiVersion: 1 }));
 
   return app;

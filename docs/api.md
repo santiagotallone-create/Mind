@@ -6,7 +6,7 @@ Regla de trabajo: cualquier cambio que afecte este contrato se consulta antes a 
 
 ## Convenciones
 - Base: `https://<servidor>/v1`. JSON UTF-8. Fechas ISO 8601 con zona horaria; las fechas de renovación son `AAAA-MM-DD` en la zona horaria del usuario.
-- Autenticación: `Authorization: Bearer <accessToken>` en todo salvo `/auth/*`, `/healthz` y `/v1/version`.
+- Autenticación: `Authorization: Bearer <accessToken>` en todo salvo `/auth/*`, `/health` y `/v1/version`.
 - Errores: `{ "error": { "code": "...", "message": "..." } }`. Códigos: `invalid_request` (400), `unauthorized` (401), `invalid_invite` (403), `quota_exhausted` (403), `not_found` (404), `rate_limited` (429), `internal` (500).
 - Toda la información de un usuario se filtra por su `user_id` en el servidor.
 
