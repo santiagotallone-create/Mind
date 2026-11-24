@@ -61,7 +61,7 @@ Marcadas con ★ las que bloquean empezar #4 (esqueleto y sistema de diseño). L
 | Datos del servidor | TanStack Query con persistencia en IndexedDB y cola de escrituras sin conexión. |
 | Meditación | Elemento `<audio>` (más fiable en segundo plano) con Media Session. Audio m4a descargado una vez y guardado en el teléfono. |
 | Voz en vivo | `AudioWorklet` a 24 kHz y WebSocket, reutilizando lo ya probado en la PoC (`src/poc/public/index.html`). Vive en módulos TypeScript puros, fuera del framework. |
-| Contrato | Los esquemas zod se importan tal cual. Las respuestas se validan en desarrollo y en tests, no en producción. Aporta ≈26 KB gzip. |
+| Contrato | Los esquemas zod se importan tal cual. Las respuestas se validan siempre con el esquema (cambio del 24/11: validar solo en desarrollo no ahorraba el peso de zod en el paquete y deja pasar datos mal formados). Aporta ≈26 KB gzip. |
 | Barra de progreso | Solo lectura (sin arrastrar), coherente con «sin retroceder ni adelantar». |
 | Tests | Vitest + Testing Library + MSW (servidor simulado desde el contrato): integración de navegación (menú visible u oculto, regreso con ✕ y «‹ Atrás»), como pide #4. |
 
@@ -113,3 +113,24 @@ Estructura de `web/`: `src/styles` (tokens y estilos globales), `src/i18n` (cat�
 - El anillo de «Tus planes» muestra la sesión en curso («3/5» con 2 hechas), mientras que el detalle de un plan completado dice «5 de 5» y el contrato expone `sessionsDone`. Se implementó como el prototipo. **Confirmado por Santi (24/11): se deja así.**
 - Las ondas de la esfera y de la línea de voz son las del prototipo, copiadas punto por punto (`web/src/lib/waves.ts`).
 - En el prototipo el padding superior (48–56 px) cubre la barra de estado simulada; en la PWA real se usa `safe-area-inset-top` más 20 px.
+
+
+## 6. Inicio, Planes y Detalle del plan (historia #8)
+
+Rama `ola-2/8-inicio-planes`, apilada sobre `ola-1/4-esqueleto-app` (PR #22).
+
+**Capa de API (`web/src/api/`).**
+- `DeviceAuth`: registro con `#codigo=…` (se borra de la dirección con `history.replaceState`, haya o no registro), secreto de 256 bits en base64url guardado en IndexedDB, token de 15 min en memoria. Varias peticiones simultáneas comparten una sola renovación. Ante un 401 se renueva una vez y se reintenta; si la renovación también da 401, se olvida el dispositivo (revocado o borrado; duda 20, opción A).
+- `ApiClient`: añade el token y valida cada respuesta con el esquema del contrato. Distingue el error de red (`network`) del error de la API. `warmUp()` llama a `GET /v1/version` al abrir la app, sin esperar ni cachear (duda 28).
+- En desarrollo, Vite reenvía `/v1` a `http://localhost:8080` (o a `API_PROXY`).
+- Todavía no se envían `timezone` ni `locale` al registrar: esos campos entran al contrato con el cambio aprobado de la duda 21 y se suman cuando backend lo aplique.
+
+**Estado del coach (`app/coach.tsx`).** Conexión (`navigator.onLine` más los eventos `online` y `offline`) y bolsón (`GET /v1/quota` con TanStack Query, se refresca al volver a la app o a tener red). El Inicio cambia en vivo. Si el bolsón no se conoce (teléfono sin registrar o sin respuesta), el Inicio no bloquea el coach: lo decide el servidor al abrir la charla. Con el bolsón agotado o sin conexión: esfera apagada, texto de apoyo y «Empezar meditación» relleno.
+
+**Planes y sesiones (`data/plans.tsx`).** Almacén observable con `setFavorite` y `completeSession` (idempotente; al completar la última sesión el plan pasa a «completado»). Hoy parte de datos simulados; los planes reales llegan con #7 y la persistencia en IndexedDB con la sincronización. Al terminar una meditación (en desarrollo, con el botón «Simular fin de la meditación») la sesión cuenta como hecha (D9), sigue la charla de cierre y, sin bolsón o sin conexión, se vuelve a Planes.
+
+**Observaciones para decidir.**
+- El detalle del plan no tiene «‹ Planes» arriba: el issue #8 lo menciona, pero el prototipo no lo muestra. Se dejó como el prototipo; el regreso es por el menú inferior.
+- Ajustes sin el bolsón conocido muestra un aviso provisorio («No pudimos consultar tu consumo ahora.»): el diseño no cubre ese caso.
+- Un código de invitación inválido hoy no muestra ningún mensaje (el copy lo diseña UI; llega con #12).
+- Planes sin ningún plan (antes de la entrevista) muestra solo «Favoritas» y «Pedir un plan nuevo al coach»: el diseño no tiene ese estado.

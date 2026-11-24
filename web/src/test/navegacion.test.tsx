@@ -1,12 +1,14 @@
 import { screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { t } from "../i18n";
-import { PLAN_TENSION, getNextSession, getPlanSessions } from "../mocks/data";
+import { nextSessionOf, sessionsOf } from "../data/plans";
+import { PLAN_TENSION, seedState } from "../mocks/data";
 import { renderApp } from "./render";
 
 const menu = () => screen.queryByRole("navigation", { name: t("nav.label") });
-const next = getNextSession(PLAN_TENSION)!;
-const pending = getPlanSessions(PLAN_TENSION).filter((s) => !s.done && s.id !== next.id);
+const seed = seedState();
+const next = nextSessionOf(seed, PLAN_TENSION)!;
+const pending = sessionsOf(seed, PLAN_TENSION).filter((s) => !s.done && s.id !== next.id);
 
 describe("menú inferior", () => {
   it.each([

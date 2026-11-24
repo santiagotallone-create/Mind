@@ -4,18 +4,19 @@ import { Button } from "../components/Button";
 import { Card } from "../components/Card";
 import { Icon } from "../components/Icon";
 import { t } from "../i18n";
-import { getNextSession, getPlan, getPlanSessions } from "../mocks/data";
+import { nextSessionOf, planById, sessionsOf, usePlansState } from "../data/plans";
 import styles from "./screens.module.css";
 
 export function PlanDetail() {
   const { planId = "" } = useParams();
   const navigate = useNavigate();
   const go = useGoWithOrigin();
-  const plan = getPlan(planId);
+  const state = usePlansState();
+  const plan = planById(state, planId);
   if (!plan) return <Navigate to="/planes" replace />;
 
-  const sessions = getPlanSessions(plan.id);
-  const next = getNextSession(plan.id);
+  const sessions = sessionsOf(state, plan.id);
+  const next = nextSessionOf(state, plan.id);
   const completed = plan.status === "completado";
 
   return (

@@ -5,14 +5,15 @@ import { Button } from "../components/Button";
 import { DurationSelector } from "../components/DurationSelector";
 import { ScreenHeader } from "../components/ScreenHeader";
 import { t } from "../i18n";
-import { DURATIONS, getSession } from "../mocks/data";
+import { sessionById, usePlansState } from "../data/plans";
+import { DURATIONS } from "../mocks/data";
 import styles from "./screens.module.css";
 
 export function SessionBefore() {
   const { sessionId = "" } = useParams();
   const navigate = useNavigate();
   const go = useGoWithOrigin();
-  const session = getSession(sessionId);
+  const session = sessionById(usePlansState(), sessionId);
   const [minutes, setMinutes] = useState<number>(session?.suggestedMinutes ?? DURATIONS[1]!);
   if (!session) return <Navigate to="/planes" replace />;
 

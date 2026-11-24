@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router";
-import { useDemo } from "../app/demo";
+import { useCoach } from "../app/coach";
 import { useGoWithOrigin } from "../app/navigation";
 import { Button } from "../components/Button";
 import { Sphere } from "../components/Sphere";
@@ -8,7 +8,7 @@ import { formatLongDate } from "../i18n/format";
 import styles from "./screens.module.css";
 
 export function Home() {
-  const { coachAvailable, online, quota } = useDemo();
+  const { coachAvailable, online, quota } = useCoach();
   const go = useGoWithOrigin();
   const navigate = useNavigate();
 
@@ -17,7 +17,9 @@ export function Home() {
     ? t("home.subtitle")
     : !online
       ? t("home.needsInternet")
-      : t("home.coachReturns", { date: formatLongDate(quota.renewsOn ?? "") });
+      : quota?.renewsOn
+        ? t("home.coachReturns", { date: formatLongDate(quota.renewsOn) })
+        : "\u00a0";
 
 
   return (

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router";
-import { useDemo } from "../app/demo";
+import { useCoach } from "../app/coach";
 import { BottomSheet } from "../components/BottomSheet";
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
@@ -106,7 +106,7 @@ export function EditProfile() {
 
 export function Settings() {
   const navigate = useNavigate();
-  const { quota } = useDemo();
+  const { quota } = useCoach();
   return (
     <div className={styles.stackLoose}>
       <ScreenHeader onBack={() => navigate("/yo")} />
@@ -114,10 +114,16 @@ export function Settings() {
       <Card>
         <div className={styles.stack} style={{ gap: 4 }}>
           <h2 className={styles.heading}>{t("settings.usage")}</h2>
-          <p style={{ font: "var(--fw-semibold) var(--fs-lead)/1.3 var(--font)" }}>
-            {t("settings.remaining", { remaining: formatMinutes(quota.minutesRemaining), total: formatMinutes(quota.secondsTotal / 60) })}
-          </p>
-          {quota.renewsOn ? <p className={styles.small}>{t("settings.renewsOn", { date: formatLongDate(quota.renewsOn) })}</p> : null}
+          {quota ? (
+            <>
+              <p style={{ font: "var(--fw-semibold) var(--fs-lead)/1.3 var(--font)" }}>
+                {t("settings.remaining", { remaining: formatMinutes(quota.minutesRemaining), total: formatMinutes(quota.secondsTotal / 60) })}
+              </p>
+              {quota.renewsOn ? <p className={styles.small}>{t("settings.renewsOn", { date: formatLongDate(quota.renewsOn) })}</p> : null}
+            </>
+          ) : (
+            <p className={styles.small}>{t("settings.usageUnknown")}</p>
+          )}
         </div>
       </Card>
       <Card as="button" onClick={() => navigate("/yo/ajustes/privacidad")}>

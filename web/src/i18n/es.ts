@@ -144,6 +144,8 @@ export const es = {
   settings: {
     title: "Ajustes",
     usage: "Consumo del bolsón",
+    // Texto provisorio (el diseño no cubre Ajustes sin conexión ni con el bolsón sin consultar): confirmar con UI.
+    usageUnknown: "No pudimos consultar tu consumo ahora.",
     remaining: "Te quedan {remaining} de {total}",
     renewsOn: "Se renueva el {date}.",
     privacy: "Privacidad y datos",
@@ -194,6 +196,7 @@ export const es = {
   kit: {
     title: "Componentes",
     map: "Mapa de pantallas",
+    simulateEnd: "Simular fin de la meditación",
     demoQuota: "Tiempo con el coach",
     demoQuotaOn: "Con bolsón",
     demoQuotaOff: "Bolsón en 0",

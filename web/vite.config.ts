@@ -41,6 +41,8 @@ export default defineConfig({
       },
     }),
   ],
+  // En desarrollo, las llamadas a /v1 van al servidor local (o a otro con API_PROXY).
+  server: { proxy: { "/v1": process.env.API_PROXY ?? "http://localhost:8080" } },
   test: {
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
