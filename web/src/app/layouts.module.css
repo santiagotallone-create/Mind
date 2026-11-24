@@ -1,0 +1,3 @@
+.shell { display: flex; flex-direction: column; height: 100dvh; max-width: var(--app-max-w); margin: 0 auto; background: var(--c-bg); }
+.main { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column;
+  padding: var(--screen-top) var(--screen-x) var(--sp-6); }

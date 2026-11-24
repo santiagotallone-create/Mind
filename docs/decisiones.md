@@ -68,6 +68,16 @@ Detalle en `docs/arquitectura.md` y `docs/api.md`.
 - **Voz en vivo:** el servidor entrega un ticket de un solo uso (60 s) antes de abrir el WebSocket. Ahí se comprueba el bolsón, así que el bloqueo con saldo en cero no depende de la app.
 - **Limitación de la PWA en iPhone (a documentar en la historia de reproducción, #9):** instalada en la pantalla de inicio, la reproducción de audio y la charla en vivo no están garantizadas con la pantalla bloqueada o la app en segundo plano. En Android la reproducción en segundo plano es viable. La salida futura es envolver la misma web en una app nativa.
 
+## 2026-11-24 (historia #4: esqueleto de la app y sistema de diseño)
+Detalle en `docs/frontend.md`.
+- **Framework de la PWA:** React 19 + Vite 8 + React Router 8 (rutas con «layout») + `vite-plugin-pwa` 2.0, TypeScript, Vitest + Testing Library. Elegido por el frontend por delegación de Santi; no impacta al backend. Alternativa descartada por tamaño y ecosistema, no por validez: Svelte 5.
+- **Ubicación:** carpeta `web/` con su propio `package.json`; importa `src/contract/` con el alias `@contract`. El CI suma un trabajo para `web/` (typecheck, tests, build).
+- **Tipografía:** Manrope variable autoalojada (la del prototipo); corrige el «tipo Inter» de `ui-decisiones` y del issue #4.
+- **Nombre e ícono:** «Ume», logo «Anochecer».
+- **Estilos y textos:** variables CSS y CSS Modules; catálogo de textos tipado, sin textos en el código.
+- **Navegación:** menú inferior (Inicio, Planes, Yo) oculto en meditación activa, charlas y activación; regreso al origen en charlas; la ✕ del reproductor y «‹ Atrás» de «Antes de empezar» vuelven al detalle del plan; sesiones pendientes no tocables.
+- **Instalación:** sin aviso en la app en el MVP; se instala desde el menú de Chrome.
+
 ## 2026-11-23 (historia #6: bolsón de coaching)
 Reglas completas en `docs/api.md` (sección «Qué descuenta del bolsón») y `docs/arquitectura.md`.
 - **Decisiones de Santi (23/11):** descuentan las seis clases de charla; descuenta el tiempo conectado y sin pausa, incluidos los silencios; el periodo abre en el primer segundo activo (`ready`) y vence a la misma hora local un mes después, con último día del mes si el día no existe; despedida al quedar 20 s y 10 s de margen sin descuento; la inactividad pasa de 5 minutos a 60 s más una pregunta del coach y 20 s más; tope de 30 minutos (`limite_duracion`); sin `talk_active` ni control de una sola charla activa en el MVP; `professional_help` no se emite en el MVP.
