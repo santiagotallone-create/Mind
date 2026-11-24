@@ -1,4 +1,4 @@
-import { wavePoints } from "../lib/wave";
+import { SPHERE_BACK, SPHERE_FRONT } from "../lib/waves";
 import styles from "./Sphere.module.css";
 
 type Props = {
@@ -7,8 +7,6 @@ type Props = {
   size?: number;
 };
 
-const slow = wavePoints(780, 100, 44);
-const slowRev = wavePoints(780, 100, 30, 390, 1.8);
 
 /** Esfera del coach: respira cuando está encendida; apagada queda quieta, con una línea plana. */
 export function Sphere({ on = true, size = 200 }: Props) {
@@ -22,12 +20,12 @@ export function Sphere({ on = true, size = 200 }: Props) {
           <>
             <div className={styles.idle} style={{ transform: `scale(${k})`, transformOrigin: "0 0" }}>
               <svg className={styles.flowSlow} width="780" height="200" viewBox="0 0 780 200" fill="none">
-                <polyline points={slow} stroke="var(--c-wave-dark)" strokeOpacity=".9" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+                <polyline points={SPHERE_FRONT} stroke="var(--c-wave-dark)" strokeOpacity=".9" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
               </svg>
             </div>
             <div className={styles.idle} style={{ transform: `scale(${k})`, transformOrigin: "0 0" }}>
               <svg className={styles.flowRevSlow} width="780" height="200" viewBox="0 0 780 200" fill="none">
-                <polyline points={slowRev} stroke="var(--c-wave-dark)" strokeOpacity=".5" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+                <polyline points={SPHERE_BACK} stroke="var(--c-wave-dark)" strokeOpacity=".5" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
               </svg>
             </div>
           </>
