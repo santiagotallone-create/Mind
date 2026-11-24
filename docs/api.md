@@ -38,7 +38,13 @@ El token de acceso dura 15 minutos. La app lo renueva sola con `/auth/token`. Si
 8. Tipos de charla: `libre`, `entrevista`, `cierre` (requiere `sessionId`), `plan` (requiere `planId`), `meditacion` (requiere `sessionId`), `plan_nuevo`.
 9. El evento `professional_help` está definido en el contrato, pero **el servidor no lo emite en el MVP** (decisión de Santi, 23/11). El coach sigue sugiriendo consultar a un profesional con su prompt, pero la app no recibe un estado aparte.
 
-Herramientas del coach (contrato; la implementación llega en las Olas 2 y 3): `ajustar_velocidad`, `crear_plan`, `ajustar_plan`, `guardar_perfil`, `marcar_entrevista_completa`. Sus argumentos están en `CoachToolsSchema`.
+10. Errores del ticket: `403 quota_exhausted` (saldo en cero, para las seis clases de charla), `404 not_found` (plan o sesión que no son del usuario, o `resumeTalkId` de una charla que ya terminó o es de otra persona), `429 rate_limited` (ver Límites) y `401` sin token de acceso.
+11. El WebSocket no usa el token de acceso: se entra con el ticket. Si el ticket no sirve (usado, vencido o inventado) o el origen no está permitido, el servidor manda `{ "type": "error", "code": "invalid_ticket" | "origin_not_allowed" | "rate_limited", "retryable": false }` y cierra. Si la charla no pudo arrancar (el proveedor de voz no conectó) manda `error` con `code: "start_failed"` y `retryable: true`, cierra con `ended`/`error` y **no abre el periodo del bolsón**.
+12. Al reconectar con `resumeTalkId`, el servidor manda otra vez `ready` (con el mismo `talkId`) y, si la charla estaba en pausa, `paused`.
+13. La app puede mandar audio como máximo a 1,25 veces el tiempo real; lo que exceda se descarta (protege el costo de un cliente defectuoso).
+14. Al cerrar la charla el servidor genera un resumen interno con un modelo de texto de OpenAI y borra la transcripción; si el resumen falla, la transcripción queda guardada y se completa al empezar la charla siguiente. Nada de esto sale por la API.
+
+Herramientas del coach. En esta versión el coach tiene `ajustar_velocidad` (guarda también `settings.voiceSpeed`), `guardar_perfil` y `marcar_entrevista_completa`. `crear_plan` y `ajustar_plan` están en el contrato (`CoachToolsSchema`) pero **no se le ofrecen al modelo** hasta las Olas 2 y 3; si la persona pide un plan, el coach le dice que todavía no está disponible.
 
 ## Planes y meditaciones
 | Método y ruta | Descripción |

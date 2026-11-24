@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { WebSocketServer, type WebSocket } from "ws";
 import { loadCoachPrompt } from "../coach/prompt.js";
+import { createCoachTools } from "../coach/tools.js";
 import { defaultConfig, languageSettings, speedFromEnv, turnDetectionFromEnv } from "../config.js";
 import { createVoiceProvider } from "../voice/index.js";
 import type { VoiceProvider } from "../voice/provider.js";
@@ -48,17 +49,27 @@ wss.on("connection", (ws) => {
 
     if (msg.type === "start" && !provider) {
       const { language, provider: providerName } = defaultConfig;
-      provider = createVoiceProvider(providerName);
+      const current = createVoiceProvider(providerName);
+      provider = current;
+      // La prueba de concepto solo ofrece al coach la herramienta de velocidad.
+      const tools = createCoachTools({
+        ajustar_velocidad: async ({ velocidad }) => {
+          current.setSpeed(velocidad);
+          return { ok: true, velocidad_actual: velocidad };
+        },
+      });
       try {
-        await provider.start(
+        await current.start(
           {
             language,
             turnDetection: turnDetectionFromEnv(),
             speed: speedFromEnv(),
             instructions: await loadCoachPrompt(language),
             voice: languageSettings[language].voice,
+            tools: tools.definitions,
           },
           {
+            onToolCall: (call) => tools.handle(call),
             onAudio: (chunk) => ws.send(chunk),
             onTranscript: (role, text) => sendJson(ws, { type: "transcript", role, text }),
             onInterrupted: () => sendJson(ws, { type: "interrupted" }),

@@ -1,5 +1,12 @@
 import type { Language, TurnDetectionConfig } from "../config.js";
 
+/** Herramienta que el coach puede llamar. `parameters` es un esquema JSON. */
+export interface ToolDefinition {
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+}
+
 /** Configuración con la que se abre una sesión de voz. */
 export interface VoiceSessionConfig {
   language: Language;
@@ -11,6 +18,8 @@ export interface VoiceSessionConfig {
   instructions: string;
   /** Nombre de la voz del motor elegido. */
   voice?: string;
+  /** Herramientas que el coach puede usar en esta sesión. Si falta, no tiene ninguna. */
+  tools?: ToolDefinition[];
 }
 
 /** Métricas de una sesión, para comparar motores. */
@@ -55,6 +64,13 @@ export interface VoiceProviderEvents {
   /** El usuario empezó a hablar: hay que cortar el audio del coach que se esté reproduciendo. */
   onInterrupted?: () => void;
   onError: (error: Error) => void;
+  /**
+   * El coach llamó una herramienta. Devuelve el resultado que se le entrega al coach.
+   * `arguments` es el texto JSON tal como lo mandó el motor: lo valida quien lo recibe.
+   */
+  onToolCall?: (call: { name: string; arguments: string }) => Promise<unknown>;
+  /** El coach terminó de responder (o la respuesta fue cancelada). */
+  onResponseDone?: () => void;
 }
 
 /**
@@ -67,5 +83,9 @@ export interface VoiceProvider {
   sendAudio(chunk: ArrayBuffer): void;
   /** Corta la respuesta del coach cuando el usuario lo interrumpe. */
   interrupt(): void;
+  /** Hace que el coach diga algo ahora, siguiendo esta indicación (por ejemplo, una despedida). */
+  say(instruction: string): void;
+  /** Cambia la velocidad de la voz del coach a partir de la siguiente respuesta. */
+  setSpeed(speed: number): void;
   close(): Promise<SessionMetrics>;
 }

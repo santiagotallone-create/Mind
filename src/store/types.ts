@@ -1,5 +1,7 @@
 import type { TalkType } from "../contract/index.js";
 
+export type Experience = "principiante" | "algo_practica" | "mucha_practica";
+
 /** Contratos de acceso a datos. El servidor solo conoce estas interfaces: hay una versión en memoria (pruebas y desarrollo) y una con Supabase. */
 
 export interface UserRecord {
@@ -76,4 +78,93 @@ export interface TalksStore {
   usageByType(userId: string, periodId: string): Promise<UsageByType[]>;
 }
 
-export interface DataStore extends UsersStore, QuotaStore, TalksStore {}
+export interface ProfileRecord {
+  goals: string;
+  experience: Experience | null;
+  currentState: string;
+  interviewCompletedAt: Date | null;
+}
+
+export interface SettingsRecord {
+  locale: "es" | "it";
+  timezone: string;
+  voiceSpeed: number;
+}
+
+/** Un turno de la charla. Se guarda solo hasta generar el resumen y después se borra. */
+export interface TranscriptTurn {
+  role: "user" | "coach";
+  text: string;
+  at: string;
+}
+
+export interface PlanProgress {
+  id: string;
+  name: string;
+  sessionsDone: number;
+  sessionsTotal: number;
+}
+
+export interface ProgressSnapshot {
+  activePlans: PlanProgress[];
+  completedPlans: number;
+  sessionsDoneTotal: number;
+  lastSessionDoneAt: Date | null;
+}
+
+export interface SessionContext {
+  id: string;
+  planId: string;
+  planName: string;
+  title: string;
+  technique: string;
+  suggestedMinutes: number;
+  doneAt: Date | null;
+}
+
+export interface PlanContext {
+  id: string;
+  name: string;
+  description: string;
+  status: string;
+  sessions: { position: number; title: string; technique: string; suggestedMinutes: number; done: boolean }[];
+}
+
+export interface MemoryEntry {
+  talkId: string | null;
+  createdAt: Date;
+  summary: string;
+}
+
+export interface PendingTranscript {
+  talkId: string;
+  type: TalkType;
+  startedAt: Date;
+  turns: TranscriptTurn[];
+}
+
+/** Lo que el coach necesita saber y recordar: perfil, ajustes, progreso, memoria interna. */
+export interface CoachStore {
+  getProfile(userId: string): Promise<ProfileRecord>;
+  updateProfile(userId: string, patch: { goals?: string; experience?: Experience; currentState?: string }): Promise<void>;
+  markInterviewComplete(userId: string, at: Date): Promise<void>;
+  getSettings(userId: string): Promise<SettingsRecord>;
+  updateVoiceSpeed(userId: string, speed: number): Promise<void>;
+  getProgress(userId: string): Promise<ProgressSnapshot>;
+  getSessionContext(userId: string, sessionId: string): Promise<SessionContext | null>;
+  getPlanContext(userId: string, planId: string): Promise<PlanContext | null>;
+  /** Guarda la transcripción provisoria de una charla (se borra al generar el resumen). */
+  saveTranscript(talkId: string, turns: TranscriptTurn[]): Promise<void>;
+  /** Cierra las charlas que quedaron abiertas (por ejemplo tras un reinicio del servidor). Devuelve cuántas. */
+  closeOpenTalks(endedAt: Date, endReason: string): Promise<number>;
+  /** Charlas ya cerradas cuya transcripción todavía no se resumió. */
+  listPendingTranscripts(userId: string): Promise<PendingTranscript[]>;
+  /** Guarda el resumen interno y borra la transcripción de esa charla. Repetirla no duplica el resumen. */
+  saveSummary(input: { userId: string; talkId: string; summary: string }): Promise<void>;
+  /** Borra la transcripción sin generar resumen (charla vacía). */
+  clearTranscript(talkId: string): Promise<void>;
+  /** Resúmenes más recientes primero. Solo los lee el servidor: nunca salen por la API. */
+  recentSummaries(userId: string, limit: number): Promise<MemoryEntry[]>;
+}
+
+export interface DataStore extends UsersStore, QuotaStore, TalksStore, CoachStore {}

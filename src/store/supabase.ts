@@ -1,6 +1,22 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { TalkType } from "../contract/index.js";
-import type { DataStore, DeviceRecord, QuotaPeriod, TalkRecord, UsageByType, UserRecord } from "./types.js";
+import type {
+  DataStore,
+  DeviceRecord,
+  Experience,
+  MemoryEntry,
+  PendingTranscript,
+  PlanContext,
+  ProfileRecord,
+  ProgressSnapshot,
+  QuotaPeriod,
+  SessionContext,
+  SettingsRecord,
+  TalkRecord,
+  TranscriptTurn,
+  UsageByType,
+  UserRecord,
+} from "./types.js";
 
 /**
  * Almacén real: Supabase (Postgres) con la clave de servicio, solo desde el servidor.
@@ -131,6 +147,180 @@ export class SupabaseStore implements DataStore {
       byType.set(row.type, entry);
     }
     return [...byType.values()];
+  }
+
+  // --- Coach: perfil, ajustes, progreso y memoria interna ---
+
+  async getProfile(userId: string): Promise<ProfileRecord> {
+    const { data, error } = await this.db
+      .from("profiles")
+      .select("goals, experience, current_state, interview_completed_at")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (error) throw dbError("profiles", error);
+    return {
+      goals: data?.goals ?? "",
+      experience: data?.experience ?? null,
+      currentState: data?.current_state ?? "",
+      interviewCompletedAt: data?.interview_completed_at ? new Date(data.interview_completed_at) : null,
+    };
+  }
+
+  async updateProfile(userId: string, patch: { goals?: string; experience?: Experience; currentState?: string }): Promise<void> {
+    const row: Record<string, unknown> = { user_id: userId, updated_at: new Date().toISOString() };
+    if (patch.goals !== undefined) row.goals = patch.goals;
+    if (patch.experience !== undefined) row.experience = patch.experience;
+    if (patch.currentState !== undefined) row.current_state = patch.currentState;
+    const { error } = await this.db.from("profiles").upsert(row, { onConflict: "user_id" });
+    if (error) throw dbError("profiles", error);
+  }
+
+  async markInterviewComplete(userId: string, at: Date): Promise<void> {
+    const { error } = await this.db
+      .from("profiles")
+      .upsert({ user_id: userId, interview_completed_at: at.toISOString(), updated_at: at.toISOString() }, { onConflict: "user_id" });
+    if (error) throw dbError("profiles", error);
+  }
+
+  async getSettings(userId: string): Promise<SettingsRecord> {
+    const { data, error } = await this.db.from("settings").select("locale, timezone, voice_speed").eq("user_id", userId).maybeSingle();
+    if (error) throw dbError("settings", error);
+    return { locale: data?.locale ?? "es", timezone: data?.timezone ?? "Europe/Rome", voiceSpeed: Number(data?.voice_speed ?? 1) };
+  }
+
+  async updateVoiceSpeed(userId: string, speed: number): Promise<void> {
+    const { error } = await this.db.from("settings").upsert({ user_id: userId, voice_speed: speed }, { onConflict: "user_id" });
+    if (error) throw dbError("settings", error);
+  }
+
+  async getProgress(userId: string): Promise<ProgressSnapshot> {
+    const [plans, sessions] = await Promise.all([
+      this.db.from("plans").select("id, name, status").eq("user_id", userId),
+      this.db.from("sessions").select("plan_id, done_at").eq("user_id", userId),
+    ]);
+    if (plans.error) throw dbError("plans", plans.error);
+    if (sessions.error) throw dbError("sessions", sessions.error);
+    const allSessions = sessions.data ?? [];
+    const done = allSessions.filter((x) => x.done_at);
+    return {
+      activePlans: (plans.data ?? [])
+        .filter((p) => p.status === "activo")
+        .map((p) => {
+          const own = allSessions.filter((x) => x.plan_id === p.id);
+          return { id: p.id, name: p.name, sessionsDone: own.filter((x) => x.done_at).length, sessionsTotal: own.length };
+        }),
+      completedPlans: (plans.data ?? []).filter((p) => p.status === "completado").length,
+      sessionsDoneTotal: done.length,
+      lastSessionDoneAt: done.reduce<Date | null>((latest, x) => {
+        const at = new Date(x.done_at);
+        return !latest || at > latest ? at : latest;
+      }, null),
+    };
+  }
+
+  async getSessionContext(userId: string, sessionId: string): Promise<SessionContext | null> {
+    const { data, error } = await this.db
+      .from("sessions")
+      .select("id, plan_id, title, technique, suggested_minutes, done_at, plans(name)")
+      .eq("id", sessionId)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (error) throw dbError("sessions", error);
+    if (!data) return null;
+    const plan = Array.isArray(data.plans) ? data.plans[0] : data.plans;
+    return {
+      id: data.id,
+      planId: data.plan_id,
+      planName: plan?.name ?? "",
+      title: data.title,
+      technique: data.technique,
+      suggestedMinutes: data.suggested_minutes,
+      doneAt: data.done_at ? new Date(data.done_at) : null,
+    };
+  }
+
+  async getPlanContext(userId: string, planId: string): Promise<PlanContext | null> {
+    const [plan, sessions] = await Promise.all([
+      this.db.from("plans").select("id, name, description, status").eq("id", planId).eq("user_id", userId).maybeSingle(),
+      this.db
+        .from("sessions")
+        .select("position, title, technique, suggested_minutes, done_at")
+        .eq("plan_id", planId)
+        .eq("user_id", userId)
+        .order("position", { ascending: true }),
+    ]);
+    if (plan.error) throw dbError("plans", plan.error);
+    if (sessions.error) throw dbError("sessions", sessions.error);
+    if (!plan.data) return null;
+    return {
+      id: plan.data.id,
+      name: plan.data.name,
+      description: plan.data.description,
+      status: plan.data.status,
+      sessions: (sessions.data ?? []).map((x) => ({
+        position: x.position,
+        title: x.title,
+        technique: x.technique,
+        suggestedMinutes: x.suggested_minutes,
+        done: x.done_at !== null,
+      })),
+    };
+  }
+
+  async saveTranscript(talkId: string, turns: TranscriptTurn[]): Promise<void> {
+    const { error } = await this.db.from("talks").update({ transcript: turns }).eq("id", talkId);
+    if (error) throw dbError("talks", error);
+  }
+
+  async closeOpenTalks(endedAt: Date, endReason: string): Promise<number> {
+    const { data, error } = await this.db
+      .from("talks")
+      .update({ ended_at: endedAt.toISOString(), end_reason: endReason })
+      .is("ended_at", null)
+      .select("id");
+    if (error) throw dbError("talks", error);
+    return data?.length ?? 0;
+  }
+
+  async listPendingTranscripts(userId: string): Promise<PendingTranscript[]> {
+    const { data, error } = await this.db
+      .from("talks")
+      .select("id, type, started_at, transcript")
+      .eq("user_id", userId)
+      .not("ended_at", "is", null)
+      .not("transcript", "is", null)
+      .order("started_at", { ascending: true });
+    if (error) throw dbError("talks", error);
+    return (data ?? []).map((row) => ({
+      talkId: row.id,
+      type: row.type,
+      startedAt: new Date(row.started_at),
+      turns: Array.isArray(row.transcript) ? row.transcript : [],
+    }));
+  }
+
+  async saveSummary(input: { userId: string; talkId: string; summary: string }): Promise<void> {
+    const saved = await this.db
+      .from("coach_memory")
+      .upsert({ user_id: input.userId, talk_id: input.talkId, summary: input.summary }, { onConflict: "talk_id" });
+    if (saved.error) throw dbError("coach_memory", saved.error);
+    await this.clearTranscript(input.talkId);
+  }
+
+  async clearTranscript(talkId: string): Promise<void> {
+    const { error } = await this.db.from("talks").update({ transcript: null }).eq("id", talkId);
+    if (error) throw dbError("talks", error);
+  }
+
+  async recentSummaries(userId: string, limit: number): Promise<MemoryEntry[]> {
+    const { data, error } = await this.db
+      .from("coach_memory")
+      .select("talk_id, created_at, summary")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (error) throw dbError("coach_memory", error);
+    return (data ?? []).map((row) => ({ talkId: row.talk_id, createdAt: new Date(row.created_at), summary: row.summary }));
   }
 }
 

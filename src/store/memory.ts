@@ -1,6 +1,40 @@
 import { randomUUID } from "node:crypto";
 import type { TalkType } from "../contract/index.js";
-import type { DataStore, DeviceRecord, QuotaPeriod, TalkRecord, UsageByType, UserRecord } from "./types.js";
+import type {
+  DataStore,
+  DeviceRecord,
+  Experience,
+  MemoryEntry,
+  PendingTranscript,
+  PlanContext,
+  ProfileRecord,
+  ProgressSnapshot,
+  QuotaPeriod,
+  SessionContext,
+  SettingsRecord,
+  TalkRecord,
+  TranscriptTurn,
+  UsageByType,
+  UserRecord,
+} from "./types.js";
+
+interface MemoryPlan {
+  id: string;
+  userId: string;
+  name: string;
+  description: string;
+  status: string;
+}
+interface MemorySession {
+  id: string;
+  userId: string;
+  planId: string;
+  position: number;
+  title: string;
+  technique: string;
+  suggestedMinutes: number;
+  doneAt: Date | null;
+}
 
 /**
  * Almacén en memoria: sirve para las pruebas y para desarrollar sin Supabase.
@@ -12,11 +46,19 @@ export class MemoryStore implements DataStore {
   readonly devices = new Map<string, DeviceRecord>();
   readonly periods = new Map<string, QuotaPeriod>();
   readonly talks = new Map<string, TalkRecord>();
+  readonly profiles = new Map<string, ProfileRecord>();
+  readonly settings = new Map<string, SettingsRecord>();
+  readonly plans = new Map<string, MemoryPlan>();
+  readonly sessions = new Map<string, MemorySession>();
+  readonly transcripts = new Map<string, TranscriptTurn[]>();
+  readonly memory: (MemoryEntry & { userId: string })[] = [];
 
   async createUserWithDevice(input: { secretHash: string; deviceName?: string }) {
     const userId = randomUUID();
     const deviceId = randomUUID();
     this.users.set(userId, { id: userId, timezone: "Europe/Rome", locale: "es" });
+    this.profiles.set(userId, { goals: "", experience: null, currentState: "", interviewCompletedAt: null });
+    this.settings.set(userId, { locale: "es", timezone: "Europe/Rome", voiceSpeed: 1 });
     this.devices.set(deviceId, { id: deviceId, userId, secretHash: input.secretHash, revokedAt: null });
     return { userId, deviceId };
   }
@@ -114,5 +156,146 @@ export class MemoryStore implements DataStore {
       byType.set(talk.type, row);
     }
     return [...byType.values()];
+  }
+
+  // --- Coach: perfil, ajustes, progreso y memoria interna ---
+
+  async getProfile(userId: string) {
+    return { ...(this.profiles.get(userId) ?? { goals: "", experience: null, currentState: "", interviewCompletedAt: null }) };
+  }
+
+  async updateProfile(userId: string, patch: { goals?: string; experience?: Experience; currentState?: string }) {
+    const current = await this.getProfile(userId);
+    this.profiles.set(userId, {
+      ...current,
+      ...(patch.goals !== undefined ? { goals: patch.goals } : {}),
+      ...(patch.experience !== undefined ? { experience: patch.experience } : {}),
+      ...(patch.currentState !== undefined ? { currentState: patch.currentState } : {}),
+    });
+  }
+
+  async markInterviewComplete(userId: string, at: Date) {
+    const current = await this.getProfile(userId);
+    this.profiles.set(userId, { ...current, interviewCompletedAt: at });
+  }
+
+  async getSettings(userId: string) {
+    return { ...(this.settings.get(userId) ?? { locale: "es" as const, timezone: "Europe/Rome", voiceSpeed: 1 }) };
+  }
+
+  async updateVoiceSpeed(userId: string, speed: number) {
+    const current = await this.getSettings(userId);
+    this.settings.set(userId, { ...current, voiceSpeed: speed });
+  }
+
+  /** Solo para pruebas: los planes y sesiones los crea el coach en las Olas 2 y 3. */
+  addPlan(userId: string, input: { name: string; description?: string; status?: string }): string {
+    const id = randomUUID();
+    this.plans.set(id, { id, userId, name: input.name, description: input.description ?? "", status: input.status ?? "activo" });
+    return id;
+  }
+
+  addSession(userId: string, planId: string, input: { title: string; technique?: string; suggestedMinutes?: number; doneAt?: Date | null }): string {
+    const id = randomUUID();
+    const position = [...this.sessions.values()].filter((x) => x.planId === planId).length + 1;
+    this.sessions.set(id, {
+      id,
+      userId,
+      planId,
+      position,
+      title: input.title,
+      technique: input.technique ?? "respiracion",
+      suggestedMinutes: input.suggestedMinutes ?? 10,
+      doneAt: input.doneAt ?? null,
+    });
+    return id;
+  }
+
+  async getProgress(userId: string): Promise<ProgressSnapshot> {
+    const plans = [...this.plans.values()].filter((p) => p.userId === userId);
+    const sessions = [...this.sessions.values()].filter((x) => x.userId === userId);
+    const done = sessions.filter((x) => x.doneAt);
+    return {
+      activePlans: plans
+        .filter((p) => p.status === "activo")
+        .map((p) => {
+          const own = sessions.filter((x) => x.planId === p.id);
+          return { id: p.id, name: p.name, sessionsDone: own.filter((x) => x.doneAt).length, sessionsTotal: own.length };
+        }),
+      completedPlans: plans.filter((p) => p.status === "completado").length,
+      sessionsDoneTotal: done.length,
+      lastSessionDoneAt: done.reduce<Date | null>((latest, x) => (!latest || x.doneAt! > latest ? x.doneAt : latest), null),
+    };
+  }
+
+  async getSessionContext(userId: string, sessionId: string): Promise<SessionContext | null> {
+    const session = this.sessions.get(sessionId);
+    if (!session || session.userId !== userId) return null;
+    const plan = this.plans.get(session.planId);
+    return {
+      id: session.id,
+      planId: session.planId,
+      planName: plan?.name ?? "",
+      title: session.title,
+      technique: session.technique,
+      suggestedMinutes: session.suggestedMinutes,
+      doneAt: session.doneAt,
+    };
+  }
+
+  async getPlanContext(userId: string, planId: string): Promise<PlanContext | null> {
+    const plan = this.plans.get(planId);
+    if (!plan || plan.userId !== userId) return null;
+    return {
+      id: plan.id,
+      name: plan.name,
+      description: plan.description,
+      status: plan.status,
+      sessions: [...this.sessions.values()]
+        .filter((x) => x.planId === planId)
+        .sort((a, b) => a.position - b.position)
+        .map((x) => ({ position: x.position, title: x.title, technique: x.technique, suggestedMinutes: x.suggestedMinutes, done: x.doneAt !== null })),
+    };
+  }
+
+  async saveTranscript(talkId: string, turns: TranscriptTurn[]) {
+    this.transcripts.set(talkId, turns.map((t) => ({ ...t })));
+  }
+
+  async closeOpenTalks(endedAt: Date, endReason: string) {
+    let closed = 0;
+    for (const talk of this.talks.values()) {
+      if (talk.endedAt === null) {
+        talk.endedAt = endedAt;
+        talk.endReason = endReason;
+        closed += 1;
+      }
+    }
+    return closed;
+  }
+
+  async listPendingTranscripts(userId: string): Promise<PendingTranscript[]> {
+    return [...this.talks.values()]
+      .filter((t) => t.userId === userId && t.endedAt !== null && this.transcripts.has(t.id))
+      .map((t) => ({ talkId: t.id, type: t.type, startedAt: t.startedAt, turns: this.transcripts.get(t.id)!.map((x) => ({ ...x })) }));
+  }
+
+  async saveSummary(input: { userId: string; talkId: string; summary: string }) {
+    const existing = this.memory.find((m) => m.talkId === input.talkId);
+    if (existing) existing.summary = input.summary;
+    else this.memory.push({ userId: input.userId, talkId: input.talkId, createdAt: new Date(), summary: input.summary });
+    this.transcripts.delete(input.talkId);
+  }
+
+  async clearTranscript(talkId: string) {
+    this.transcripts.delete(talkId);
+  }
+
+  async recentSummaries(userId: string, limit: number): Promise<MemoryEntry[]> {
+    return this.memory
+      .filter((m) => m.userId === userId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, limit)
+      .map(({ talkId, createdAt, summary }) => ({ talkId, createdAt, summary }));
   }
 }
