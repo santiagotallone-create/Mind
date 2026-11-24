@@ -108,11 +108,8 @@ export const quotaNotStarted: QuotaStatus = {
 
 export const DURATIONS: readonly Minutes[] = [5, 10, 15];
 
-// --- Consultas (simulan los endpoints de lectura) ---
-
-export const getPlan = (planId: string) => plans.find((p) => p.id === planId);
-export const getPlanSessions = (planId: string) => sessions.filter((s) => s.planId === planId);
-export const getSession = (id: string) => sessions.find((s) => s.id === id);
-export const getFavorites = () => sessions.filter((s) => s.favorite);
-/** Primera sesión sin hacer, en orden. */
-export const getNextSession = (planId: string) => getPlanSessions(planId).find((s) => !s.done);
+/** Estado inicial simulado: dos planes activos, el primero con 2 de 5 sesiones hechas. */
+export const seedState = (): { plans: PlanSummary[]; sessions: SessionSummary[] } => ({
+  plans: plans.map((p) => ({ ...p })),
+  sessions: sessions.map((s) => ({ ...s })),
+});

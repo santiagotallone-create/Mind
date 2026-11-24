@@ -5,7 +5,7 @@ import { Row } from "../components/Row";
 import { Sphere } from "../components/Sphere";
 import { t } from "../i18n";
 import { typicalMinutes } from "../i18n/format";
-import { getPlanSessions, plans } from "../mocks/data";
+import { sessionsOf, usePlansState } from "../data/plans";
 import styles from "./screens.module.css";
 
 /** Primer uso: pide el micrófono. El permiso real llega en la historia de voz; aquí solo se avanza. */
@@ -31,12 +31,13 @@ export function FirstUse() {
 /** Planes propuestos al terminar la entrevista: quedan los dos activos. */
 export function ProposedPlans() {
   const navigate = useNavigate();
+  const state = usePlansState();
   return (
     <div className={styles.stackLoose}>
       <h1 className={styles.title}>{t("activation.proposedTitle")}</h1>
       <div className={styles.stack}>
-        {plans.map((plan) => {
-          const minutes = typicalMinutes(getPlanSessions(plan.id).map((s) => s.suggestedMinutes));
+        {state.plans.map((plan) => {
+          const minutes = typicalMinutes(sessionsOf(state, plan.id).map((s) => s.suggestedMinutes));
           return (
             <Card key={plan.id}>
               <div className={styles.stack}>

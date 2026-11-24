@@ -6,7 +6,7 @@ import { ProgressRing } from "../components/ProgressRing";
 import { Row } from "../components/Row";
 import { t } from "../i18n";
 import { typicalMinutes } from "../i18n/format";
-import { getFavorites, getNextSession, getPlanSessions, plans } from "../mocks/data";
+import { favoritesOf, nextSessionOf, sessionsOf, usePlansState } from "../data/plans";
 import styles from "./screens.module.css";
 
 const lowerFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
@@ -14,15 +14,17 @@ const lowerFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
 export function Plans() {
   const go = useGoWithOrigin();
   const navigate = useNavigate();
-  const favorites = getFavorites();
+  const state = usePlansState();
+  const { plans } = state;
+  const favorites = favoritesOf(state);
 
   return (
     <div className={styles.stackLoose}>
       <h1 className={styles.title}>{t("plans.title")}</h1>
       <div className={styles.stack}>
         {plans.map((plan) => {
-          const minutes = typicalMinutes(getPlanSessions(plan.id).map((s) => s.suggestedMinutes));
-          const next = getNextSession(plan.id);
+          const minutes = typicalMinutes(sessionsOf(state, plan.id).map((s) => s.suggestedMinutes));
+          const next = nextSessionOf(state, plan.id);
           const completed = plan.status === "completado";
           // El anillo del prototipo muestra la sesión en curso («3/5» con 2 hechas) y, completado, el total.
           const current = completed ? plan.sessionsTotal : plan.sessionsDone + 1;
