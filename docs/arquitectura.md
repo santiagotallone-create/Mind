@@ -66,7 +66,7 @@ Notas:
 - Estado `sin_iniciar`: no hay periodo abierto (nunca hubo charla, o el último ya venció). Saldo completo y sin fecha de renovación.
 - Estado `agotado`: saldo en cero dentro de un periodo abierto. La fecha en que vuelve el coach es el vencimiento de ese periodo.
 - La fecha de renovación (`renewsOn`, `AAAA-MM-DD` en la zona horaria del usuario) es el vencimiento del periodo abierto. La app la formatea desde el catálogo de textos: nunca «el mes próximo».
-- El servidor rechaza abrir una charla con saldo cero (ticket de voz → 403 `quota_exhausted`). Si se agota en plena charla, el coach se despide hablando y el servidor cierra con `reason: "quota_exhausted"`.
+- El servidor rechaza abrir una charla con saldo cero (ticket de voz → 403 `quota_exhausted`). Si se agota en plena charla, el coach se despide hablando y el servidor cierra con `reason: "cuota_agotada"`.
 - La implementación y los tests de borde son de la historia #6.
 
 ## Almacenamiento local en el celular (offline)

@@ -89,3 +89,8 @@ test("las ediciones de perfil y ajustes exigen al menos un campo y respetan rang
   assert.equal(UpdateSettingsRequestSchema.safeParse({ voiceSpeed: 2 }).success, false);
   assert.equal(UpdateSettingsRequestSchema.safeParse({ voiceSpeed: 0.9 }).success, true);
 });
+
+test("el cierre por tope de 30 minutos tiene su propio motivo", () => {
+  assert.equal(ServerEventSchema.safeParse({ type: "ended", reason: "limite_duracion" }).success, true);
+  assert.equal(ServerEventSchema.safeParse({ type: "ended", reason: "otro_motivo" }).success, false);
+});

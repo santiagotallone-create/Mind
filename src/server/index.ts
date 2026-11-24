@@ -1,9 +1,11 @@
+import { createStore } from "../store/index.js";
 import { buildApp } from "./app.js";
+import { loadEnv } from "./env.js";
 
-const port = Number(process.env.PORT) || 8080;
-const app = buildApp();
+const env = loadEnv();
+const app = buildApp({ env, store: createStore(env) });
 
-app.listen({ port, host: "0.0.0.0" }).catch((error) => {
+app.listen({ port: env.port, host: "0.0.0.0" }).catch((error) => {
   app.log.error(error);
   process.exit(1);
 });
