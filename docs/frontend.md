@@ -110,6 +110,6 @@ Estructura de `web/`: `src/styles` (tokens y estilos globales), `src/i18n` (cat�
 - Las pruebas de integración usan un router en memoria (`createAppRouter(initialEntries)`).
 
 **Observaciones de diseño para UI (no se modificó nada).**
-- El anillo de «Tus planes» muestra la sesión en curso («3/5» con 2 hechas), mientras que el detalle de un plan completado dice «5 de 5» y el contrato expone `sessionsDone`. Se implementó como el prototipo; conviene confirmar que es lo deseado.
+- El anillo de «Tus planes» muestra la sesión en curso («3/5» con 2 hechas), mientras que el detalle de un plan completado dice «5 de 5» y el contrato expone `sessionsDone`. Se implementó como el prototipo. **Confirmado por Santi (24/11): se deja así.**
 - La esfera lleva una sola cinta ondulada; en el prototipo son dos capas con fases distintas. Implementadas con una onda de dos armónicos de elaboración propia: confirmar con UI.
 - En el prototipo el padding superior (48–56 px) cubre la barra de estado simulada; en la PWA real se usa `safe-area-inset-top` más 20 px.
