@@ -24,6 +24,7 @@ before(async () => {
   await db.exec(migration("0001_init.sql").replace("create extension if not exists pgcrypto;", ""));
   await db.exec(migration("0002_bolson.sql"));
   await db.exec(migration("0003_charla_en_vivo.sql"));
+  await db.exec(migration("0004_permisos_servidor.sql"));
 });
 
 after(async () => {
@@ -182,4 +183,14 @@ test("al borrar la charla el resumen queda (talk_id pasa a null) y la transcripc
   assert.equal(stored.rows[0].transcript[0].text, "Hola");
   await db.query("update talks set transcript = null where id = $1", [talk]);
   assert.equal((await db.query<any>("select transcript from talks where id = $1", [talk])).rows[0].transcript, null);
+});
+
+test("la migración 0004 se puede repetir y las funciones siguen cerradas para anon y authenticated", async () => {
+  await db.exec(migration("0004_permisos_servidor.sql"));
+  for (const role of ["anon", "authenticated"]) {
+    const res = await db.query<any>("select has_function_privilege($1, 'register_device(text, text)', 'execute') as ok", [role]);
+    assert.equal(res.rows[0].ok, false, role);
+  }
+  const server = await db.query<any>("select has_table_privilege('service_role', 'users', 'insert') as ok");
+  assert.equal(server.rows[0].ok, true);
 });

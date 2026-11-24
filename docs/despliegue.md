@@ -4,7 +4,7 @@ Historia #3. Estos pasos los hace Santi porque necesitan sus cuentas. Costo espe
 
 ## 1. Supabase (base de datos y audios)
 1. Crear un proyecto gratuito en supabase.com (región de Europa).
-2. En el editor SQL, ejecutar `supabase/migrations/0001_init.sql` y después, en orden, cada migración nueva (`0002_bolson.sql`, `0003_charla_en_vivo.sql`, ...). Las migraciones se pueden repetir sin romper nada. **Hay que ejecutar `0002_bolson.sql` antes de desplegar la historia #6 y `0003_charla_en_vivo.sql` antes de la #5**: el servidor usa lo que crean.
+2. En el editor SQL, ejecutar `supabase/migrations/0001_init.sql` y después, en orden, cada migración nueva (`0002_bolson.sql`, `0003_charla_en_vivo.sql`, `0004_permisos_servidor.sql`, ...). Las migraciones se pueden repetir sin romper nada. **Hay que ejecutar `0002_bolson.sql` antes de desplegar la historia #6 y `0003_charla_en_vivo.sql` antes de la #5**: el servidor usa lo que crean. **`0004_permisos_servidor.sql` es necesaria si el servidor responde `permission denied for table ...`**: da permisos al rol del servidor.
 3. Copiar la URL del proyecto y la **clave de servicio** (Settings → API). La clave de servicio nunca va en la app ni en el repositorio.
 4. Los proyectos gratuitos se pausan tras una semana sin actividad. La historia #3 deja pendiente un ping semanal automático (GitHub Actions) para evitarlo; hasta entonces, abrir la app al menos una vez por semana.
 
