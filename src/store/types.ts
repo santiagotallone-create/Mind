@@ -173,4 +173,60 @@ export interface CoachStore {
   recentSummaries(userId: string, limit: number): Promise<MemoryEntry[]>;
 }
 
-export interface DataStore extends UsersStore, QuotaStore, TalksStore, CoachStore {}
+export type PlanStatus = "activo" | "completado" | "archivado";
+export type AudioStatus = "pendiente" | "generando" | "lista" | "error";
+
+export interface PlanRow {
+  id: string;
+  name: string;
+  description: string;
+  status: PlanStatus;
+  createdAt: Date;
+  completedAt: Date | null;
+}
+
+export interface AudioRow {
+  minutes: number;
+  status: AudioStatus;
+  /** Ruta del archivo en el almacenamiento privado. Nunca sale por la API: se entrega una URL firmada. */
+  storagePath: string | null;
+  bytes: number | null;
+  durationSeconds: number | null;
+  /** Identifica el guion con el que se hizo el audio. */
+  scriptHash: string | null;
+}
+
+export interface SessionRow {
+  id: string;
+  planId: string;
+  planName: string;
+  planStatus: PlanStatus;
+  planCreatedAt: Date;
+  position: number;
+  title: string;
+  technique: string;
+  suggestedMinutes: number;
+  doneAt: Date | null;
+  favorite: boolean;
+  audios: AudioRow[];
+}
+
+/** Planes, sesiones y audios que ve la app. Los crea el coach (Olas 2 y 3); aquí solo se leen y se marcan. */
+export interface PlansStore {
+  listPlans(userId: string): Promise<PlanRow[]>;
+  getPlan(userId: string, planId: string): Promise<PlanRow | null>;
+  /** Sesiones con su plan y sus audios, ordenadas por creación del plan y posición. */
+  listSessions(userId: string, filter?: { planId?: string; sessionId?: string; favoriteOnly?: boolean }): Promise<SessionRow[]>;
+  /** false si la sesión no existe o no es de esa persona. */
+  setFavorite(userId: string, sessionId: string, favorite: boolean): Promise<boolean>;
+  /**
+   * Marca la sesión como hecha y, si era la última, el plan como completado. Atómico e idempotente: repetirlo no cambia la fecha.
+   * false si la sesión no existe o no es de esa persona.
+   */
+  completeSession(userId: string, sessionId: string, at: Date): Promise<boolean>;
+  getAudio(userId: string, sessionId: string, minutes: number): Promise<AudioRow | null>;
+  /** URL firmada de descarga de un audio del almacenamiento privado. */
+  signAudioUrl(storagePath: string, expiresInSeconds: number): Promise<string>;
+}
+
+export interface DataStore extends UsersStore, QuotaStore, TalksStore, CoachStore, PlansStore {}

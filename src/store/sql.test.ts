@@ -26,6 +26,7 @@ before(async () => {
   await db.exec(migration("0003_charla_en_vivo.sql"));
   await db.exec(migration("0004_permisos_servidor.sql"));
   await db.exec(migration("0005_registro_zona_horaria.sql"));
+  await db.exec(migration("0006_completar_sesion.sql"));
 });
 
 after(async () => {
@@ -207,4 +208,72 @@ test("la migración 0004 se puede repetir y las funciones siguen cerradas para a
   }
   const server = await db.query<any>("select has_table_privilege('service_role', 'users', 'insert') as ok");
   assert.equal(server.rows[0].ok, true);
+});
+
+describe_complete_session();
+
+function describe_complete_session() {
+  async function planWithSessions(userId: string, count: number) {
+    const plan = (await db.query<any>("insert into plans (user_id, name) values ($1, 'Plan') returning id", [userId])).rows[0].id as string;
+    const ids: string[] = [];
+    for (let i = 1; i <= count; i++) {
+      ids.push((await db.query<any>("insert into sessions (user_id, plan_id, position, title) values ($1, $2, $3, 'S') returning id", [userId, plan, i])).rows[0].id);
+    }
+    return { plan, ids };
+  }
+  const complete = (userId: string, sessionId: string, at: string) =>
+    db.query<any>("select complete_session($1, $2, $3::timestamptz) as ok", [userId, sessionId, at]).then((r) => r.rows[0].ok as boolean);
+
+  test("complete_session: marca la sesión, completa el plan con la última y es idempotente", async () => {
+    const { userId } = await newUser();
+    const { plan, ids } = await planWithSessions(userId, 2);
+    assert.equal(await complete(userId, ids[0]!, "2026-11-24T10:00:00Z"), true);
+    assert.equal((await db.query<any>("select status from plans where id = $1", [plan])).rows[0].status, "activo");
+    assert.equal(await complete(userId, ids[1]!, "2026-11-24T11:00:00Z"), true);
+    const done = (await db.query<any>("select status, completed_at from plans where id = $1", [plan])).rows[0];
+    assert.equal(done.status, "completado");
+    assert.equal(new Date(done.completed_at).toISOString(), "2026-11-24T11:00:00.000Z");
+
+    await complete(userId, ids[1]!, "2026-11-25T09:00:00Z");
+    const again = (await db.query<any>("select done_at from sessions where id = $1", [ids[1]])).rows[0];
+    assert.equal(new Date(again.done_at).toISOString(), "2026-11-24T11:00:00.000Z", "repetir no cambia la fecha");
+    assert.equal(new Date((await db.query<any>("select completed_at from plans where id = $1", [plan])).rows[0].completed_at).toISOString(), "2026-11-24T11:00:00.000Z");
+  });
+
+  test("complete_session: una sesión ajena o inexistente devuelve false y no cambia nada", async () => {
+    const { userId } = await newUser();
+    const other = await newUser();
+    const { ids } = await planWithSessions(userId, 1);
+    assert.equal(await complete(other.userId, ids[0]!, "2026-11-24T10:00:00Z"), false);
+    assert.equal(await complete(userId, "00000000-0000-4000-8000-000000000000", "2026-11-24T10:00:00Z"), false);
+    assert.equal((await db.query<any>("select done_at from sessions where id = $1", [ids[0]])).rows[0].done_at, null);
+  });
+
+  test("complete_session: un plan archivado no cambia de estado al terminar sus sesiones", async () => {
+    const { userId } = await newUser();
+    const { plan, ids } = await planWithSessions(userId, 1);
+    await db.query("update plans set status = 'archivado' where id = $1", [plan]);
+    await complete(userId, ids[0]!, "2026-11-24T10:00:00Z");
+    assert.equal((await db.query<any>("select status from plans where id = $1", [plan])).rows[0].status, "archivado");
+  });
+
+  test("complete_session: la función queda cerrada para anon y authenticated", async () => {
+    for (const role of ["anon", "authenticated"]) {
+      const res = await db.query<any>("select has_function_privilege($1, 'complete_session(uuid, uuid, timestamptz)', 'execute') as ok", [role]);
+      assert.equal(res.rows[0].ok, false, role);
+    }
+  });
+}
+
+test("semilla plan_de_ejemplo: crea el plan solo a quien no tiene y se puede repetir", async () => {
+  const seed = readFileSync(new URL("../../supabase/seeds/plan_de_ejemplo.sql", import.meta.url), "utf8");
+  const fresh = await newUser();
+  const withPlan = await newUser();
+  await db.query("insert into plans (user_id, name) values ($1, 'Mío')", [withPlan.userId]);
+  await db.exec(seed);
+  await db.exec(seed);
+  const count = async (userId: string) =>
+    (await db.query<any>("select (select count(*) from plans where user_id = $1)::int as plans, (select count(*) from sessions where user_id = $1)::int as sessions", [userId])).rows[0];
+  assert.deepEqual(await count(fresh.userId), { plans: 1, sessions: 4 });
+  assert.deepEqual(await count(withPlan.userId), { plans: 1, sessions: 0 });
 });

@@ -3,6 +3,7 @@ import Fastify from "fastify";
 import type { Summarizer } from "../coach/summarizer.js";
 import { OpenAISummarizer } from "../coach/summarizer.js";
 import { defaultConfig } from "../config.js";
+import { PlanService } from "../plans/service.js";
 import { createVoiceProvider } from "../voice/index.js";
 import type { VoiceProvider } from "../voice/provider.js";
 import { VoiceService } from "../voice/service.js";
@@ -14,6 +15,7 @@ import { loadEnv, type ServerEnv } from "./env.js";
 import { ApiError, registerErrorHandling } from "./errors.js";
 import { RateLimiter } from "./rate-limit.js";
 import { registerAuthRoutes } from "./routes/auth.js";
+import { registerPlanRoutes } from "./routes/plans.js";
 import { registerQuotaRoutes } from "./routes/quota.js";
 import { registerVoiceRoutes } from "./routes/voice.js";
 import { TokenService } from "./tokens.js";
@@ -63,6 +65,7 @@ export function buildApp(overrides: AppOverrides = {}) {
     clock,
     tokens: new TokenService(env.jwtSecret, env.accessTokenSeconds, clock),
     quota,
+    plans: new PlanService({ store, clock }),
     voice: new VoiceService({
       env,
       store,
@@ -105,6 +108,7 @@ export function buildApp(overrides: AppOverrides = {}) {
 
   registerAuthRoutes(app, ctx);
   registerQuotaRoutes(app, ctx);
+  registerPlanRoutes(app, ctx);
   registerVoiceRoutes(app, ctx);
 
   app.addHook("onReady", () => ctx.voice.start());

@@ -7,6 +7,10 @@ import type {
   MemoryEntry,
   PendingTranscript,
   PlanContext,
+  PlanRow,
+  PlanStatus,
+  AudioRow,
+  SessionRow,
   ProfileRecord,
   ProgressSnapshot,
   QuotaPeriod,
@@ -24,6 +28,8 @@ interface MemoryPlan {
   name: string;
   description: string;
   status: string;
+  createdAt: Date;
+  completedAt: Date | null;
 }
 interface MemorySession {
   id: string;
@@ -34,6 +40,11 @@ interface MemorySession {
   technique: string;
   suggestedMinutes: number;
   doneAt: Date | null;
+  favorite: boolean;
+}
+
+function toPlanRow(p: MemoryPlan): PlanRow {
+  return { id: p.id, name: p.name, description: p.description, status: p.status as PlanStatus, createdAt: p.createdAt, completedAt: p.completedAt };
 }
 
 /**
@@ -51,6 +62,8 @@ export class MemoryStore implements DataStore {
   readonly plans = new Map<string, MemoryPlan>();
   readonly sessions = new Map<string, MemorySession>();
   readonly transcripts = new Map<string, TranscriptTurn[]>();
+  readonly audios: (AudioRow & { sessionId: string; userId: string })[] = [];
+  private planCounter = 0;
   readonly memory: (MemoryEntry & { userId: string })[] = [];
 
   async createUserWithDevice(input: { secretHash: string; deviceName?: string; timezone?: string; locale?: Language }) {
@@ -193,11 +206,13 @@ export class MemoryStore implements DataStore {
   /** Solo para pruebas: los planes y sesiones los crea el coach en las Olas 2 y 3. */
   addPlan(userId: string, input: { name: string; description?: string; status?: string }): string {
     const id = randomUUID();
-    this.plans.set(id, { id, userId, name: input.name, description: input.description ?? "", status: input.status ?? "activo" });
+    // Cada plan nace un minuto después del anterior, para que el orden sea el de creación.
+    const createdAt = new Date(Date.UTC(2026, 0, 1) + this.planCounter++ * 60_000);
+    this.plans.set(id, { id, userId, name: input.name, description: input.description ?? "", status: input.status ?? "activo", createdAt, completedAt: null });
     return id;
   }
 
-  addSession(userId: string, planId: string, input: { title: string; technique?: string; suggestedMinutes?: number; doneAt?: Date | null }): string {
+  addSession(userId: string, planId: string, input: { title: string; technique?: string; suggestedMinutes?: number; doneAt?: Date | null; favorite?: boolean }): string {
     const id = randomUUID();
     const position = [...this.sessions.values()].filter((x) => x.planId === planId).length + 1;
     this.sessions.set(id, {
@@ -209,8 +224,90 @@ export class MemoryStore implements DataStore {
       technique: input.technique ?? "respiracion",
       suggestedMinutes: input.suggestedMinutes ?? 10,
       doneAt: input.doneAt ?? null,
+      favorite: input.favorite ?? false,
     });
     return id;
+  }
+
+  /** Solo para pruebas: los audios los prepara Santi de antemano. */
+  addAudio(userId: string, sessionId: string, input: Partial<AudioRow> & { minutes: number }): void {
+    this.audios.push({
+      userId,
+      sessionId,
+      status: "lista",
+      storagePath: `${userId}/${sessionId}/${input.minutes}.m4a`,
+      bytes: 4_000_000,
+      durationSeconds: input.minutes * 60,
+      scriptHash: "hash-1",
+      ...input,
+    });
+  }
+
+  async listPlans(userId: string): Promise<PlanRow[]> {
+    return [...this.plans.values()].filter((p) => p.userId === userId).map(toPlanRow);
+  }
+
+  async getPlan(userId: string, planId: string): Promise<PlanRow | null> {
+    const plan = this.plans.get(planId);
+    return plan && plan.userId === userId ? toPlanRow(plan) : null;
+  }
+
+  async listSessions(userId: string, filter: { planId?: string; sessionId?: string; favoriteOnly?: boolean } = {}): Promise<SessionRow[]> {
+    return [...this.sessions.values()]
+      .filter((x) => x.userId === userId)
+      .filter((x) => !filter.planId || x.planId === filter.planId)
+      .filter((x) => !filter.sessionId || x.id === filter.sessionId)
+      .filter((x) => !filter.favoriteOnly || x.favorite)
+      .map((x) => {
+        const plan = this.plans.get(x.planId)!;
+        return {
+          id: x.id,
+          planId: x.planId,
+          planName: plan.name,
+          planStatus: plan.status as PlanStatus,
+          planCreatedAt: plan.createdAt,
+          position: x.position,
+          title: x.title,
+          technique: x.technique,
+          suggestedMinutes: x.suggestedMinutes,
+          doneAt: x.doneAt,
+          favorite: x.favorite,
+          audios: this.audios.filter((a) => a.sessionId === x.id).map(({ sessionId: _s, userId: _u, ...audio }) => audio),
+        };
+      })
+      .sort((a, b) => a.planCreatedAt.getTime() - b.planCreatedAt.getTime() || a.position - b.position);
+  }
+
+  async setFavorite(userId: string, sessionId: string, favorite: boolean): Promise<boolean> {
+    const session = this.sessions.get(sessionId);
+    if (!session || session.userId !== userId) return false;
+    session.favorite = favorite;
+    return true;
+  }
+
+  // Sin awaits entre la lectura y la escritura: es atómico igual que la función SQL complete_session.
+  async completeSession(userId: string, sessionId: string, at: Date): Promise<boolean> {
+    const session = this.sessions.get(sessionId);
+    if (!session || session.userId !== userId) return false;
+    session.doneAt ??= at;
+    const plan = this.plans.get(session.planId)!;
+    const pending = [...this.sessions.values()].some((x) => x.planId === plan.id && x.doneAt === null);
+    if (plan.status === "activo" && !pending) {
+      plan.status = "completado";
+      plan.completedAt ??= at;
+    }
+    return true;
+  }
+
+  async getAudio(userId: string, sessionId: string, minutes: number): Promise<AudioRow | null> {
+    const audio = this.audios.find((a) => a.userId === userId && a.sessionId === sessionId && a.minutes === minutes);
+    if (!audio) return null;
+    const { sessionId: _s, userId: _u, ...row } = audio;
+    return row;
+  }
+
+  async signAudioUrl(storagePath: string, expiresInSeconds: number): Promise<string> {
+    return `https://storage.test/meditaciones/${storagePath}?token=firmado&expires=${expiresInSeconds}`;
   }
 
   async getProgress(userId: string): Promise<ProgressSnapshot> {
