@@ -103,3 +103,13 @@ Análisis completo en el documento «Dudas FE/BE 19-28» del proyecto. Santi apr
 - **26, WebSocket:** se documentó el tamaño de las tramas, que la app no manda audio antes de `ready` y el significado de pausa y reanudación. Lo que el repositorio ya había decidido el 23/11 **no se cambió**: sin control de una sola charla activa, ping cada 15 s, tickets de reconexión 30/h, cierre sin códigos propios.
 - **27, eventos:** `error.code` pasó a una lista cerrada (`VoiceErrorCodeSchema`, alineada con los códigos que el servidor ya emite); nuevo evento `interview_completed { planIds }`; `plan_created` suma `name` y `sessionsTotal`. Ninguno de los dos eventos nuevos se emite hasta las Olas 2 y 3. Tras `professional_help` la charla sigue y se avisa una sola vez, pero ese evento sigue sin emitirse en el MVP. «Pedir cambios al coach» se quitó de Planes propuestos.
 - **28, calentar el servidor:** ya existe `GET /v1/version`; no se agregó nada.
+
+## 2026-11-24 (rutas de planes y sesiones)
+- **Terminar una sesión es una función SQL (`complete_session`, migración `0006`)**: marca la sesión y, si era la última pendiente, completa el plan en una sola transacción, bloqueando el plan. Así dos sesiones terminadas a la vez (por ejemplo, dos reproducciones sin conexión que se envían juntas) no dejan el plan sin completar. Un plan archivado no cambia de estado.
+- **Idempotencia:** `done_at` conserva la primera fecha (`coalesce`); repetir `complete` no la cambia.
+- **`completedAt`:** se acepta la fecha de una reproducción sin conexión. Se toleran 5 minutos de adelanto del reloj del celular (se guarda la hora del servidor); más allá, 400.
+- **`audioVersion` de la sesión:** la del audio de la duración sugerida si está listo; si no, la de la duración más corta lista; `null` sin audios listos. `availableMinutes` cuenta solo audios `lista`.
+- **URL de audio:** firmada por Supabase Storage, vence a la hora. Un audio `lista` sin archivo en el almacenamiento se informa como `error`.
+- **Planes archivados:** no aparecen en la lista ni en favoritas.
+- **Plan de ejemplo:** hasta que exista la generación de planes (#7), `supabase/seeds/plan_de_ejemplo.sql` crea un plan de cuatro sesiones a quien no tenga ninguno. Sin audios: sirve para probar la lista, el detalle, favoritas y completar.
+

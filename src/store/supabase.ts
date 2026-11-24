@@ -6,7 +6,10 @@ import type {
   Experience,
   MemoryEntry,
   PendingTranscript,
+  AudioRow,
   PlanContext,
+  PlanRow,
+  SessionRow,
   ProfileRecord,
   ProgressSnapshot,
   QuotaPeriod,
@@ -65,6 +68,78 @@ export class SupabaseStore implements DataStore {
     const { data, error } = await this.db.from("users").select("id, timezone, locale").eq("id", userId).maybeSingle();
     if (error) throw dbError("users", error);
     return data ? { id: data.id, timezone: data.timezone, locale: data.locale } : null;
+  }
+
+  async listPlans(userId: string): Promise<PlanRow[]> {
+    const { data, error } = await this.db.from("plans").select("*").eq("user_id", userId);
+    if (error) throw dbError("plans", error);
+    return (data ?? []).map(toPlanRow);
+  }
+
+  async getPlan(userId: string, planId: string): Promise<PlanRow | null> {
+    const { data, error } = await this.db.from("plans").select("*").eq("user_id", userId).eq("id", planId).maybeSingle();
+    if (error) throw dbError("plans", error);
+    return data ? toPlanRow(data) : null;
+  }
+
+  async listSessions(userId: string, filter: { planId?: string; sessionId?: string; favoriteOnly?: boolean } = {}): Promise<SessionRow[]> {
+    let query = this.db
+      .from("sessions")
+      .select(
+        "id, plan_id, position, title, technique, suggested_minutes, done_at, favorite, plans!inner(name, status, created_at), session_audios(minutes, status, storage_path, bytes, duration_seconds, script_hash)",
+      )
+      .eq("user_id", userId);
+    if (filter.planId) query = query.eq("plan_id", filter.planId);
+    if (filter.sessionId) query = query.eq("id", filter.sessionId);
+    if (filter.favoriteOnly) query = query.eq("favorite", true);
+    const { data, error } = await query;
+    if (error) throw dbError("sessions", error);
+    return (data ?? [])
+      .map((row: any) => ({
+        id: row.id,
+        planId: row.plan_id,
+        planName: row.plans.name,
+        planStatus: row.plans.status,
+        planCreatedAt: new Date(row.plans.created_at),
+        position: row.position,
+        title: row.title,
+        technique: row.technique,
+        suggestedMinutes: row.suggested_minutes,
+        doneAt: row.done_at ? new Date(row.done_at) : null,
+        favorite: row.favorite,
+        audios: (row.session_audios ?? []).map(toAudio),
+      }))
+      .sort((a, b) => a.planCreatedAt.getTime() - b.planCreatedAt.getTime() || a.position - b.position);
+  }
+
+  async setFavorite(userId: string, sessionId: string, favorite: boolean): Promise<boolean> {
+    const { data, error } = await this.db.from("sessions").update({ favorite }).eq("id", sessionId).eq("user_id", userId).select("id");
+    if (error) throw dbError("sessions", error);
+    return (data ?? []).length > 0;
+  }
+
+  async completeSession(userId: string, sessionId: string, at: Date): Promise<boolean> {
+    const { data, error } = await this.db.rpc("complete_session", { p_user: userId, p_session: sessionId, p_at: at.toISOString() });
+    if (error) throw dbError("complete_session", error);
+    return data === true;
+  }
+
+  async getAudio(userId: string, sessionId: string, minutes: number): Promise<AudioRow | null> {
+    const { data, error } = await this.db
+      .from("session_audios")
+      .select("minutes, status, storage_path, bytes, duration_seconds, script_hash")
+      .eq("user_id", userId)
+      .eq("session_id", sessionId)
+      .eq("minutes", minutes)
+      .maybeSingle();
+    if (error) throw dbError("session_audios", error);
+    return data ? toAudio(data) : null;
+  }
+
+  async signAudioUrl(storagePath: string, expiresInSeconds: number): Promise<string> {
+    const { data, error } = await this.db.storage.from("meditaciones").createSignedUrl(storagePath, expiresInSeconds);
+    if (error || !data) throw new Error(`Supabase (storage): no se pudo firmar la URL: ${error?.message ?? "sin respuesta"}`);
+    return data.signedUrl;
   }
 
   async getOpenPeriod(userId: string, now: Date): Promise<QuotaPeriod | null> {
@@ -337,6 +412,28 @@ function first<T>(data: unknown, error: { message: string } | null, what: string
   const row = Array.isArray(data) ? data[0] : data;
   if (!row) throw new Error(`Supabase (${what}): respuesta vacía`);
   return row as T;
+}
+
+function toPlanRow(row: any): PlanRow {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    status: row.status,
+    createdAt: new Date(row.created_at),
+    completedAt: row.completed_at ? new Date(row.completed_at) : null,
+  };
+}
+
+function toAudio(row: any): AudioRow {
+  return {
+    minutes: row.minutes,
+    status: row.status,
+    storagePath: row.storage_path,
+    bytes: row.bytes === null ? null : Number(row.bytes),
+    durationSeconds: row.duration_seconds,
+    scriptHash: row.script_hash,
+  };
 }
 
 function toPeriod(row: any): QuotaPeriod {

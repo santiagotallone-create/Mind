@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import type { PlanService } from "../plans/service.js";
 import type { QuotaService } from "../quota/service.js";
 import type { VoiceService } from "../voice/service.js";
 import type { DataStore } from "../store/types.js";
@@ -13,6 +14,7 @@ export interface AppContext {
   tokens: TokenService;
   quota: QuotaService;
   voice: VoiceService;
+  plans: PlanService;
 }
 
 declare module "fastify" {
