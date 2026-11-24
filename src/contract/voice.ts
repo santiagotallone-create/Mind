@@ -40,7 +40,8 @@ export const ClientControlMessageSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("end") }),
 ]);
 
-export const EndReasonSchema = z.enum(["usuario", "cuota_agotada", "corte", "error", "inactividad"]);
+/** limite_duracion: la charla llegó al tope de 30 minutos continuos. */
+export const EndReasonSchema = z.enum(["usuario", "cuota_agotada", "corte", "error", "inactividad", "limite_duracion"]);
 
 /** Eventos del servidor (tramas de texto). */
 export const ServerEventSchema = z.discriminatedUnion("type", [

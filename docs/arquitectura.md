@@ -24,6 +24,7 @@ Historia #3. Las decisiones y sus motivos están en `docs/decisiones.md` (entrad
 
 - El frontend **solo** habla con nuestro servidor. Nunca con Supabase ni con los proveedores. Las claves viven solo en el servidor.
 - El servidor es sin estado entre peticiones, salvo las sesiones de voz abiertas (en memoria, con respaldo del consumo en base de datos cada pocos segundos para sobrevivir a un reinicio).
+- Charla en vivo (#5): `VoiceService` reparte los tickets y guarda las charlas abiertas en memoria; cada `VoiceSession` aplica todas las reglas de tiempo (pausa, reconexión, inactividad, despedida, tope) en un `tick()` de 1 segundo, así se prueban con un reloj falso. El motor de voz está detrás de la interfaz `VoiceProvider` (hoy OpenAI Realtime). Los tickets y las charlas viven en memoria, válido mientras `--max-instances 1`.
 - Cloud Run escala a cero: la primera petición tras un rato inactivo tarda 1 a 3 segundos. La app avisa al servidor al abrir el Inicio para calentarlo antes de que el usuario toque «Hablar».
 
 ## Identidad sin cuentas
@@ -66,7 +67,7 @@ Notas:
 - Estado `sin_iniciar`: no hay periodo abierto (nunca hubo charla, o el último ya venció). Saldo completo y sin fecha de renovación.
 - Estado `agotado`: saldo en cero dentro de un periodo abierto. La fecha en que vuelve el coach es el vencimiento de ese periodo.
 - La fecha de renovación (`renewsOn`, `AAAA-MM-DD` en la zona horaria del usuario) es el vencimiento del periodo abierto. La app la formatea desde el catálogo de textos: nunca «el mes próximo».
-- El servidor rechaza abrir una charla con saldo cero (ticket de voz → 403 `quota_exhausted`). Si se agota en plena charla, el coach se despide hablando y el servidor cierra con `reason: "quota_exhausted"`.
+- El servidor rechaza abrir una charla con saldo cero (ticket de voz → 403 `quota_exhausted`). Si se agota en plena charla, el coach se despide hablando y el servidor cierra con `reason: "cuota_agotada"`.
 - La implementación y los tests de borde son de la historia #6.
 
 ## Almacenamiento local en el celular (offline)
@@ -97,6 +98,7 @@ Notas:
 - Tokens de acceso de 15 minutos; renovación revocable (`devices.revoked_at`).
 - Ticket de voz de un solo uso y 60 segundos de vida: la URL del WebSocket no contiene el token de acceso.
 - RLS activo y sin políticas en todas las tablas: aunque se filtrara la clave pública de Supabase, no se podría leer nada.
+- WebSocket de voz: se valida el origen contra `ALLOWED_ORIGINS` (si está definido), 30 conexiones por minuto y por IP, mensajes de hasta 256 KB y ping cada 15 s para detectar conexiones muertas. CORS de la API solo para esos orígenes.
 - No se guarda el audio del usuario, solo la transcripción necesaria para la memoria (D13). Lo que digan los textos de privacidad debe salir de aquí.
 - Validación de todo lo que entra con los esquemas de `src/contract/`.
 

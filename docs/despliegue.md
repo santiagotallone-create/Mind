@@ -4,7 +4,7 @@ Historia #3. Estos pasos los hace Santi porque necesitan sus cuentas. Costo espe
 
 ## 1. Supabase (base de datos y audios)
 1. Crear un proyecto gratuito en supabase.com (región de Europa).
-2. En el editor SQL, ejecutar `supabase/migrations/0001_init.sql`.
+2. En el editor SQL, ejecutar `supabase/migrations/0001_init.sql` y después, en orden, cada migración nueva (`0002_bolson.sql`, `0003_charla_en_vivo.sql`, `0004_permisos_servidor.sql`, ...). Las migraciones se pueden repetir sin romper nada. **Hay que ejecutar `0002_bolson.sql` antes de desplegar la historia #6 y `0003_charla_en_vivo.sql` antes de la #5**: el servidor usa lo que crean. **`0004_permisos_servidor.sql` es necesaria si el servidor responde `permission denied for table ...`**: da permisos al rol del servidor.
 3. Copiar la URL del proyecto y la **clave de servicio** (Settings → API). La clave de servicio nunca va en la app ni en el repositorio.
 4. Los proyectos gratuitos se pausan tras una semana sin actividad. La historia #3 deja pendiente un ping semanal automático (GitHub Actions) para evitarlo; hasta entonces, abrir la app al menos una vez por semana.
 
@@ -23,6 +23,8 @@ gcloud run deploy mind-server \
   --set-env-vars SUPABASE_URL=https://TU-PROYECTO.supabase.co
 ```
 
+- Cuando se conozca la dirección de la PWA, agregar `ALLOWED_ORIGINS=https://tu-pwa` (varias, separadas por coma) a `--set-env-vars`; sin esa variable el navegador no puede llamar a la API desde otro origen. `PUBLIC_URL=https://la-url-del-servidor` es opcional: fija la dirección que se entrega en `wsUrl` (si falta, se arma con la petición).
+- `OPENAI_SUMMARY_MODEL` (opcional, por defecto `gpt-4.1-mini`) es el modelo de texto que resume cada charla. Si OpenAI lo rechaza, las charlas funcionan igual, pero no se generan resúmenes (se ve en los logs).
 - `--max-instances 1` limita el costo y simplifica la medición del bolsón.
 - `--timeout 3600` permite charlas largas por WebSocket.
 - Los secretos se crean antes en Secret Manager.
@@ -38,6 +40,7 @@ Esperar un minuto y repetir el despliegue. Si `gcloud services enable` da error 
 
 ## 3. Comprobación
 - `GET https://<url-del-servidor>/health` debe responder `{"status":"ok"}`. No usar `/healthz`: Cloud Run reserva esa ruta y responde 404 sin llegar al servidor.
+- Con una charla real: medir el costo comparándolo con el uso de la cuenta de OpenAI y registrar una charla de unos 10 minutos con el modelo mini (seguimiento pendiente de la prueba de concepto).
 
 ## 4. La app (PWA)
 El alojamiento de la PWA se decide en la historia #4 con el framework elegido por el frontend. Opciones sin costo: servirla desde el mismo servidor o desde una web estática gratuita.

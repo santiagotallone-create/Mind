@@ -1,5 +1,5 @@
 import WebSocket from "ws";
-import { clampSpeed, MAX_SPEED, MIN_SPEED } from "../config.js";
+import { clampSpeed } from "../config.js";
 import { realtimePrices } from "./pricing.js";
 import type {
   SessionMetrics,
@@ -12,25 +12,8 @@ import type {
 const DEFAULT_MODEL = "gpt-realtime-2.1-mini";
 const DEFAULT_VOICE = "marin";
 const TRANSCRIPTION_MODEL = "gpt-4o-mini-transcribe";
-
-/** Herramienta que permite al coach cambiar la velocidad de su voz cuando la persona lo pide. */
-const SPEED_TOOL = {
-  type: "function",
-  name: "ajustar_velocidad",
-  description:
-    "Cambia la velocidad de tu propia voz cuando la persona pide que hables más lento o más rápido. " +
-    "1 es la velocidad normal; un valor menor es más lento. Cambia de a 0.1 o 0.15 respecto de la velocidad actual.",
-  parameters: {
-    type: "object",
-    properties: {
-      velocidad: {
-        type: "number",
-        description: `Nueva velocidad, entre ${MIN_SPEED} y ${MAX_SPEED}. Por ejemplo 0.85 para hablar más lento.`,
-      },
-    },
-    required: ["velocidad"],
-  },
-} as const;
+/** Se puede cambiar con OPENAI_REALTIME_URL (por ejemplo para probar contra un servidor local). */
+const DEFAULT_URL = "wss://api.openai.com/v1/realtime";
 
 /**
  * Motor 1: servicio de voz de extremo a extremo (OpenAI Realtime), por WebSocket desde el servidor.
@@ -72,7 +55,8 @@ export class OpenAIRealtimeProvider implements VoiceProvider {
     this.events = events;
     this.startedAt = Date.now();
 
-    const ws = new WebSocket(`wss://api.openai.com/v1/realtime?model=${encodeURIComponent(model)}`, {
+    const baseUrl = process.env.OPENAI_REALTIME_URL || DEFAULT_URL;
+    const ws = new WebSocket(`${baseUrl}?model=${encodeURIComponent(model)}`, {
       headers: { Authorization: `Bearer ${apiKey}` },
     });
     this.ws = ws;
@@ -95,7 +79,7 @@ export class OpenAIRealtimeProvider implements VoiceProvider {
         model,
         output_modalities: ["audio"],
         instructions: `${config.instructions}\n\nVelocidad actual de tu voz: ${this.speed}.`,
-        tools: [SPEED_TOOL],
+        tools: (config.tools ?? []).map((tool) => ({ type: "function", ...tool })),
         tool_choice: "auto",
         audio: {
           input: {
@@ -134,6 +118,16 @@ export class OpenAIRealtimeProvider implements VoiceProvider {
     this.send({ type: "response.cancel" });
   }
 
+  say(instruction: string): void {
+    this.send({ type: "response.create", response: { instructions: instruction } });
+  }
+
+  setSpeed(speed: number): void {
+    this.speed = clampSpeed(speed);
+    // La velocidad solo cambia entre turnos; la siguiente respuesta ya sale con el nuevo valor.
+    this.send({ type: "session.update", session: { type: "realtime", audio: { output: { speed: this.speed } } } });
+  }
+
   async close(): Promise<SessionMetrics> {
     this.ws?.close();
     const metrics: SessionMetrics = {
@@ -164,23 +158,16 @@ export class OpenAIRealtimeProvider implements VoiceProvider {
     return metrics;
   }
 
-  /** Ejecuta una herramienta pedida por el coach y le devuelve el resultado. */
-  private handleToolCall(item: { name?: string; arguments?: string; call_id?: string }): void {
-    if (item.name !== SPEED_TOOL.name || !item.call_id) return;
-    let requested = NaN;
+  /** Entrega la llamada a quien maneja las herramientas y le devuelve el resultado al coach. */
+  private async handleToolCall(item: { name?: string; arguments?: string; call_id?: string }): Promise<void> {
+    if (!item.name || !item.call_id) return;
+    let output: unknown;
     try {
-      requested = Number(JSON.parse(item.arguments ?? "{}").velocidad);
+      output = this.events?.onToolCall
+        ? await this.events.onToolCall({ name: item.name, arguments: item.arguments ?? "{}" })
+        : { ok: false, error: "herramienta_no_disponible" };
     } catch {
-      // Argumentos inválidos: se informa abajo.
-    }
-    let output: Record<string, unknown>;
-    if (Number.isFinite(requested)) {
-      this.speed = clampSpeed(requested);
-      // La velocidad solo cambia entre turnos; la siguiente respuesta ya sale con el nuevo valor.
-      this.send({ type: "session.update", session: { type: "realtime", audio: { output: { speed: this.speed } } } });
-      output = { ok: true, velocidad_actual: this.speed };
-    } else {
-      output = { ok: false, error: "velocidad inválida", velocidad_actual: this.speed };
+      output = { ok: false, error: "error_de_herramienta" };
     }
     this.send({
       type: "conversation.item.create",
@@ -258,8 +245,9 @@ export class OpenAIRealtimeProvider implements VoiceProvider {
         if (msg.response?.usage) this.addUsage(msg.response.usage);
         // Las herramientas se ejecutan cuando la respuesta terminó, para no interferir con el audio en curso.
         for (const item of msg.response?.output ?? []) {
-          if (item.type === "function_call") this.handleToolCall(item);
+          if (item.type === "function_call") void this.handleToolCall(item);
         }
+        events.onResponseDone?.();
         break;
       case "error": {
         const text: string = msg.error?.message ?? "Error desconocido del servicio de voz";

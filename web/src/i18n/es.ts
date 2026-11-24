@@ -111,7 +111,6 @@ export const es = {
     proposedTitle: "Armé dos planes para ti",
     start: "Empezar",
     bothActive: "Quedan los dos activos.",
-    askChanges: "Pedir cambios al coach",
   },
 
   me: {

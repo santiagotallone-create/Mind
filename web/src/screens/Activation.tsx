@@ -1,5 +1,4 @@
 import { Link, useNavigate } from "react-router";
-import { useGoWithOrigin } from "../app/navigation";
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
 import { Row } from "../components/Row";
@@ -32,7 +31,6 @@ export function FirstUse() {
 /** Planes propuestos al terminar la entrevista: quedan los dos activos. */
 export function ProposedPlans() {
   const navigate = useNavigate();
-  const go = useGoWithOrigin();
   return (
     <div className={styles.stackLoose}>
       <h1 className={styles.title}>{t("activation.proposedTitle")}</h1>
@@ -52,7 +50,6 @@ export function ProposedPlans() {
         })}
       </div>
       <p className={styles.small}>{t("activation.bothActive")}</p>
-      <Button variant="secondary" onClick={() => go("/charla")}>{t("activation.askChanges")}</Button>
     </div>
   );
 }

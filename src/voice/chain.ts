@@ -22,6 +22,14 @@ export class ChainProvider implements VoiceProvider {
     throw new Error("Motor no implementado en la prueba de concepto");
   }
 
+  say(_instruction: string): void {
+    throw new Error("Motor no implementado en la prueba de concepto");
+  }
+
+  setSpeed(_speed: number): void {
+    throw new Error("Motor no implementado en la prueba de concepto");
+  }
+
   async close(): Promise<SessionMetrics> {
     throw new Error("Motor no implementado en la prueba de concepto");
   }

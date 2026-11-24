@@ -127,6 +127,20 @@ describe("regreso con ✕ y «‹ Atrás»", () => {
   });
 });
 
+describe("Inicio y planes propuestos", () => {
+  it("«Empezar meditación» abre Planes", async () => {
+    const { user } = renderApp("/");
+    await user.click(screen.getByRole("button", { name: t("home.startMeditation") }));
+    expect(screen.getByRole("heading", { name: t("plans.title") })).toBeInTheDocument();
+  });
+
+  it("Planes propuestos no ofrece «Pedir cambios al coach» (quitado por Santi el 24/11)", () => {
+    renderApp("/planes-propuestos");
+    expect(screen.getByText(t("activation.bothActive"))).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /pedir cambios/i })).not.toBeInTheDocument();
+  });
+});
+
 describe("plan y sesiones", () => {
   it("las sesiones pendientes no se pueden tocar; la siguiente y las hechas sí", () => {
     renderApp(`/planes/${PLAN_TENSION}`);

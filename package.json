@@ -13,13 +13,18 @@
     "meditacion": "tsx --env-file=.env src/meditation/cli.ts"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.6.0",
     "@types/node": "^22.0.0",
     "@types/ws": "^8.18.2",
     "tsx": "^4.23.15",
     "typescript": "^5.6.0"
   },
   "dependencies": {
+    "@fastify/cors": "^11.4.3",
+    "@fastify/websocket": "^11.3.7",
+    "@supabase/supabase-js": "^2.119.2",
     "fastify": "^5.12.8",
+    "jose": "^6.2.18",
     "ws": "^8.22.1",
     "zod": "^4.6.7"
   }
