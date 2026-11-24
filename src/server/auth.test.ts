@@ -30,6 +30,30 @@ test("el registro con código válido devuelve token y dispositivo, y guarda sol
   assert.equal(JSON.stringify([...store.devices.values()]).includes(deviceSecret), false);
 });
 
+test("el registro guarda la zona horaria y el idioma que manda la app, y sin ellos usa Europe/Rome y es", async () => {
+  const { app, store } = setup();
+  const withZone = await register(app, { inviteCode: "codigo-de-prueba", deviceSecret: newDeviceSecret(), timezone: "America/Argentina/Buenos_Aires", locale: "it" });
+  assert.equal(withZone.statusCode, 200);
+  const user = [...store.users.values()][0]!;
+  assert.deepEqual([user.timezone, user.locale], ["America/Argentina/Buenos_Aires", "it"]);
+  assert.deepEqual([store.settings.get(user.id)!.timezone, store.settings.get(user.id)!.locale], ["America/Argentina/Buenos_Aires", "it"]);
+
+  const without = await register(app, { inviteCode: "codigo-de-prueba", deviceSecret: newDeviceSecret() });
+  assert.equal(without.statusCode, 200);
+  const second = [...store.users.values()][1]!;
+  assert.deepEqual([second.timezone, second.locale], ["Europe/Rome", "es"]);
+});
+
+test("el registro rechaza una zona horaria inventada o un idioma que no existe", async () => {
+  const { app, store } = setup();
+  for (const extra of [{ timezone: "Marte/Olimpo" }, { timezone: "no es una zona" }, { timezone: "" }, { locale: "fr" }]) {
+    const res = await register(app, { inviteCode: "codigo-de-prueba", deviceSecret: newDeviceSecret(), ...extra });
+    assert.equal(res.statusCode, 400, JSON.stringify(extra));
+    assert.equal(res.json().error.code, "invalid_request");
+  }
+  assert.equal(store.users.size, 0);
+});
+
 test("sin código de invitación válido no hay registro", async () => {
   const { app, store } = setup();
   const res = await register(app, { inviteCode: "otro", deviceSecret: newDeviceSecret() });

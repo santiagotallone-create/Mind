@@ -25,6 +25,7 @@ before(async () => {
   await db.exec(migration("0002_bolson.sql"));
   await db.exec(migration("0003_charla_en_vivo.sql"));
   await db.exec(migration("0004_permisos_servidor.sql"));
+  await db.exec(migration("0005_registro_zona_horaria.sql"));
 });
 
 after(async () => {
@@ -32,7 +33,7 @@ after(async () => {
 });
 
 async function newUser(): Promise<{ userId: string; deviceId: string }> {
-  const res = await db.query<{ new_user_id: string; new_device_id: string }>("select * from register_device($1, $2)", ["hash-" + Math.random(), "Pixel"]);
+  const res = await db.query<{ new_user_id: string; new_device_id: string }>("select * from register_device($1, $2, $3, $4)", ["hash-" + Math.random(), "Pixel", null, null]);
   return { userId: res.rows[0]!.new_user_id, deviceId: res.rows[0]!.new_device_id };
 }
 
@@ -51,6 +52,19 @@ test("las migraciones 0001 y 0002 se aplican y se pueden repetir", async () => {
   await db.exec(migration("0002_bolson.sql"));
   const columns = await db.query("select 1 from information_schema.columns where table_name = 'talks' and column_name = 'quota_period_id'");
   assert.equal(columns.rows.length, 1);
+});
+
+test("register_device guarda la zona horaria y el idioma que manda la app, y sin ellos usa Europe/Rome y es", async () => {
+  const withZone = await db.query<{ new_user_id: string }>("select * from register_device($1, $2, $3, $4)", ["hash-" + Math.random(), "iPhone", "America/Argentina/Buenos_Aires", "it"]);
+  const id = withZone.rows[0]!.new_user_id;
+  for (const table of ["users", "settings"]) {
+    const col = table === "users" ? "id" : "user_id";
+    const row = (await db.query<any>(`select timezone, locale from ${table} where ${col} = $1`, [id])).rows[0];
+    assert.deepEqual(row, { timezone: "America/Argentina/Buenos_Aires", locale: "it" }, table);
+  }
+  const { userId } = await newUser();
+  const defaults = (await db.query<any>("select timezone, locale from settings where user_id = $1", [userId])).rows[0];
+  assert.deepEqual(defaults, { timezone: "Europe/Rome", locale: "es" });
 });
 
 test("register_device crea usuario, perfil, ajustes y dispositivo", async () => {

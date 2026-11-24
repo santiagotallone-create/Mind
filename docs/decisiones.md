@@ -90,3 +90,16 @@ Reglas para la app en `docs/api.md` (sección «Charla en vivo»). Decisiones de
 - **Seguridad:** origen del WebSocket validado, límites de conexión por IP, tope de audio entrante a 1,25× el tiempo real, mensajes de hasta 256 KB, ping/pong cada 15 s. Ticket de un solo uso en memoria; los límites de tickets (10/h charlas nuevas, 30/h reconexiones) son por usuario.
 - **Migración `0003`:** `talks.transcript` (jsonb) e índice único `coach_memory(talk_id)` para que guardar un resumen dos veces no lo duplique.
 - **Pruebas:** sesión (reglas de tiempo, reconexión, despedida, costo, resumen) con motor y conexión falsos; servicio y rutas con un servidor real en un puerto libre y cliente `ws`; adaptador de OpenAI contra un servidor WebSocket local (`OPENAI_REALTIME_URL`), que comprueba nuestros mensajes pero **no** el formato real del servicio.
+
+## 2026-11-24 (dudas FE/BE 19 a 28: contrato con la app)
+Análisis completo en el documento «Dudas FE/BE 19-28» del proyecto. Santi aprobó todos los cambios de contrato de abajo.
+- **19, motivo de fin por cuota:** se mantienen `cuota_agotada` (motivo de cierre de una charla) y `quota_exhausted` (error HTTP 403); son dos cosas distintas. En el MVP no hay generación de audio bajo demanda: `POST /sessions/:id/audio` responde siempre 503 `offline_generation_unavailable` y la app solo ofrece las duraciones de `availableMinutes`. Consecuencia para la interfaz: el selector 5/10/15 de «Antes de empezar» muestra solo las duraciones con audio listo (probablemente una sola al principio).
+- **20, renovación del token:** el secreto del dispositivo es la credencial de renovación; se quitó el «token de renovación» de `arquitectura.md`. El contrato no cambia.
+- **21, registro:** `RegisterDeviceRequest` suma `timezone` (IANA, validada) y `locale` opcionales. Migración `0005`: `register_device` guarda zona e idioma (por defecto `Europe/Rome` y `es`).
+- **22, borrar datos:** conserva usuario, dispositivos, ajustes y periodos del bolsón; borra el resto. El bolsón no se reinicia (D8: no). Ver `docs/api.md`.
+- **23, respuestas faltantes:** `favorite` devuelve la sesión; `complete` devuelve `{ session, plan }`; `audio` devuelve `SessionAudioResponse`.
+- **24, resúmenes:** `PlanSummary.nextSession` y `SessionSummary.planName`.
+- **25, audios:** `version` en la respuesta de audio y `audioVersion` en la sesión; política de descarga en `docs/arquitectura.md`.
+- **26, WebSocket:** se documentó el tamaño de las tramas, que la app no manda audio antes de `ready` y el significado de pausa y reanudación. Lo que el repositorio ya había decidido el 23/11 **no se cambió**: sin control de una sola charla activa, ping cada 15 s, tickets de reconexión 30/h, cierre sin códigos propios.
+- **27, eventos:** `error.code` pasó a una lista cerrada (`VoiceErrorCodeSchema`, alineada con los códigos que el servidor ya emite); nuevo evento `interview_completed { planIds }`; `plan_created` suma `name` y `sessionsTotal`. Ninguno de los dos eventos nuevos se emite hasta las Olas 2 y 3. Tras `professional_help` la charla sigue y se avisa una sola vez, pero ese evento sigue sin emitirse en el MVP. «Pedir cambios al coach» se quitó de Planes propuestos.
+- **28, calentar el servidor:** ya existe `GET /v1/version`; no se agregó nada.

@@ -30,8 +30,8 @@ Historia #3. Las decisiones y sus motivos están en `docs/decisiones.md` (entrad
 ## Identidad sin cuentas
 
 1. Primer uso: la app genera un `deviceId` y un secreto aleatorio de 256 bits y los guarda en el almacenamiento del navegador.
-2. `POST /v1/auth/device` con el **código de invitación** (variable `INVITE_CODE` del servidor) crea el usuario y el dispositivo. El servidor guarda solo el hash del secreto.
-3. El servidor responde con un token de acceso (JWT, 15 min) y un token de renovación. La app renueva sola.
+2. `POST /v1/auth/device` con el **código de invitación** (variable `INVITE_CODE` del servidor) crea el usuario y el dispositivo. El servidor guarda solo el hash del secreto. La app envía también su zona horaria (la del navegador) y el idioma `es`; si faltan, el servidor usa `Europe/Rome` y `es`. De la zona depende la fecha de renovación del bolsón, y se corrige después con `PATCH /settings`.
+3. El servidor responde con un token de acceso (JWT, 15 min). **No hay token de renovación aparte**: el secreto del dispositivo es la credencial de renovación (`POST /v1/auth/token` con `deviceId` y secreto) y la app renueva sola. El acceso se revoca con `devices.revoked_at`.
 4. Sin código de invitación válido no hay registro: la API no queda abierta y nadie puede gastar la cuenta de OpenAI.
 5. Límite de uso por dirección IP y por usuario (ver `docs/api.md`, sección Límites).
 6. Fase 2 (cuentas): se agrega un método de ingreso (correo, Google) que se vincula al mismo `user_id`. Los datos no se migran.
@@ -75,7 +75,12 @@ Notas:
 - Service worker: carga la app sin conexión.
 - IndexedDB: planes, sesiones, favoritas y estado del bolsón (último valor conocido).
 - Cache Storage / IndexedDB: audios de las meditaciones descargadas. La descarga se hace con conexión; la reproducción no la necesita.
-- El detalle de la sincronización (qué se guarda y cuándo se limpia) lo cierra el frontend en #4 y #8, dentro de este marco.
+- Política de descarga (decidida el 24/11, dudas FE/BE 25):
+  - Cada audio listo lleva una **versión** (`version` en la respuesta de audio y `audioVersion` en la sesión; es el hash del guion). Si la versión cambia, la copia del celular quedó vieja: se descarta y se baja la nueva.
+  - La app descarga en segundo plano, con conexión, el audio de la duración sugerida de las sesiones con audio `lista`. Solo se ofrecen las duraciones de `availableMinutes`: en el MVP la generación bajo demanda no está habilitada (`POST /sessions/:id/audio` responde siempre 503 `offline_generation_unavailable` y la app no la llama).
+  - Las URL firmadas vencen: si una descarga empieza con la URL vencida, se vuelve a pedir `GET /sessions/:id/audio`.
+  - Se conservan los audios de las sesiones hechas y de las favoritas. Se limpian los de planes archivados y las versiones viejas.
+- El resto del detalle de la sincronización lo cierra el frontend en #4 y #8, dentro de este marco.
 - Limitación conocida: iPhone puede liberar el almacenamiento de una web que no se usa durante un tiempo. Android no.
 
 ## Idioma
@@ -112,4 +117,4 @@ Notas:
 
 - Framework de la PWA (React, Svelte u otro): lo elige el frontend en #4 y lo registra aquí.
 - D3 y D4 (guiones y síntesis de voz): historia #7.
-- D8 (borrado y bolsón): historia #15.
+- D8 (borrado y bolsón): decidida el 24/11. `DELETE /me/data` **no** reinicia el bolsón (ver `docs/api.md`, «Perfil, ajustes y borrado»). El texto de privacidad lo redacta el backend a partir de esa lista, historia #15.

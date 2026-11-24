@@ -3,7 +3,12 @@ import { test } from "node:test";
 import {
   ClientControlMessageSchema,
   CoachToolsSchema,
+  CompleteSessionResponseSchema,
+  PlanSummarySchema,
   QuotaStatusSchema,
+  SessionAudioResponseSchema,
+  SessionSummarySchema,
+  TimezoneSchema,
   RegisterDeviceRequestSchema,
   ServerEventSchema,
   UpdateProfileRequestSchema,
@@ -93,4 +98,72 @@ test("las ediciones de perfil y ajustes exigen al menos un campo y respetan rang
 test("el cierre por tope de 30 minutos tiene su propio motivo", () => {
   assert.equal(ServerEventSchema.safeParse({ type: "ended", reason: "limite_duracion" }).success, true);
   assert.equal(ServerEventSchema.safeParse({ type: "ended", reason: "otro_motivo" }).success, false);
+});
+
+test("el registro acepta zona horaria IANA e idioma, ambos opcionales", () => {
+  const base = { inviteCode: "abc", deviceSecret: "x".repeat(43) };
+  assert.equal(RegisterDeviceRequestSchema.safeParse({ ...base, timezone: "Europe/Rome", locale: "es" }).success, true);
+  assert.equal(RegisterDeviceRequestSchema.safeParse({ ...base, timezone: "America/Argentina/Buenos_Aires" }).success, true);
+  assert.equal(RegisterDeviceRequestSchema.safeParse({ ...base, locale: "fr" }).success, false);
+  for (const bad of ["Marte/Olimpo", "Europe", "", "Europe/Rome; drop table users"]) {
+    assert.equal(TimezoneSchema.safeParse(bad).success, false, bad);
+  }
+  assert.equal(TimezoneSchema.safeParse("UTC").success, true);
+});
+
+const session = {
+  id: uuid,
+  planId: uuid,
+  planName: "Soltar la tensión",
+  position: 1,
+  title: "Respirar",
+  technique: "respiracion",
+  suggestedMinutes: 10,
+  done: false,
+  doneAt: null,
+  favorite: false,
+  availableMinutes: [10],
+  audioVersion: "abc123",
+};
+const plan = {
+  id: uuid,
+  name: "Soltar la tensión",
+  description: "Cinco sesiones",
+  status: "activo",
+  sessionsTotal: 5,
+  sessionsDone: 0,
+  nextSession: { id: uuid, position: 1, title: "Respirar", suggestedMinutes: 10 },
+  createdAt: "2026-11-24T10:00:00Z",
+  completedAt: null,
+};
+
+test("sesión y plan traen nombre del plan, próxima sesión y versión del audio", () => {
+  assert.equal(SessionSummarySchema.safeParse(session).success, true);
+  assert.equal(SessionSummarySchema.safeParse({ ...session, audioVersion: null }).success, true);
+  assert.equal(SessionSummarySchema.safeParse({ ...session, planName: undefined }).success, false);
+  assert.equal(PlanSummarySchema.safeParse(plan).success, true);
+  assert.equal(PlanSummarySchema.safeParse({ ...plan, status: "completado", nextSession: null }).success, true);
+  assert.equal(PlanSummarySchema.safeParse({ ...plan, nextSession: undefined }).success, false);
+});
+
+test("completar una sesión devuelve la sesión y el plan; el audio trae su versión", () => {
+  assert.equal(CompleteSessionResponseSchema.safeParse({ session, plan }).success, true);
+  assert.equal(CompleteSessionResponseSchema.safeParse({ session }).success, false);
+  const audio = { status: "lista", minutes: 10, url: "https://example.com/a.m4a", expiresAt: "2026-11-24T11:00:00Z", format: "m4a", bytes: 1000, durationSeconds: 600, version: "abc123" };
+  assert.equal(SessionAudioResponseSchema.safeParse(audio).success, true);
+  assert.equal(SessionAudioResponseSchema.safeParse({ ...audio, version: undefined }).success, false);
+});
+
+test("el evento error solo admite los códigos documentados", () => {
+  for (const code of ["invalid_ticket", "origin_not_allowed", "rate_limited", "start_failed", "talk_not_found", "invalid_message", "provider_error"]) {
+    assert.equal(ServerEventSchema.safeParse({ type: "error", code, retryable: false }).success, true, code);
+  }
+  assert.equal(ServerEventSchema.safeParse({ type: "error", code: "otro", retryable: false }).success, false);
+});
+
+test("plan_created trae nombre y sesiones; interview_completed lista los planes", () => {
+  assert.equal(ServerEventSchema.safeParse({ type: "plan_created", planId: uuid, name: "Soltar la tensión", sessionsTotal: 5 }).success, true);
+  assert.equal(ServerEventSchema.safeParse({ type: "plan_created", planId: uuid }).success, false);
+  assert.equal(ServerEventSchema.safeParse({ type: "interview_completed", planIds: [uuid, uuid] }).success, true);
+  assert.equal(ServerEventSchema.safeParse({ type: "interview_completed" }).success, false);
 });

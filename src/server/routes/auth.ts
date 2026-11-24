@@ -25,6 +25,8 @@ export const registerAuthRoutes: RouteRegistrar = (app, ctx) => {
     const { userId, deviceId } = await ctx.store.createUserWithDevice({
       secretHash: hashSecret(body.deviceSecret),
       deviceName: body.deviceName,
+      timezone: body.timezone,
+      locale: body.locale,
     });
     const accessToken = await ctx.tokens.issue({ userId, deviceId });
     return TokenResponseSchema.parse({ deviceId, accessToken, expiresInSeconds: ctx.tokens.expiresInSeconds });

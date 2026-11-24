@@ -1,6 +1,6 @@
 import websocket from "@fastify/websocket";
 import type { WebSocket } from "ws";
-import { VoiceTicketRequestSchema, VoiceTicketResponseSchema, type ServerEvent } from "../../contract/index.js";
+import { VoiceTicketRequestSchema, VoiceTicketResponseSchema, type ServerEvent, type VoiceErrorCode } from "../../contract/index.js";
 import type { ClientSocket } from "../../voice/session.js";
 import type { RouteRegistrar } from "../context.js";
 import { parseOrThrow } from "../errors.js";
@@ -52,7 +52,7 @@ export const registerVoiceRoutes: RouteRegistrar = (app, ctx) => {
     // La ruta no usa token de acceso: se entra con el ticket de un solo uso (la URL no contiene el token).
     instance.get("/v1/voice", { websocket: true, config: { public: true } }, (socket, request) => {
       const client = new WsClientSocket(socket);
-      const reject = (code: string) => {
+      const reject = (code: VoiceErrorCode) => {
         client.sendJson({ type: "error", code, retryable: false });
         socket.close(1008, code);
       };
