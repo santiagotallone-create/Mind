@@ -18,3 +18,25 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            web/package-lock.json
+      # La raíz aporta zod, que usan los esquemas del contrato importados desde web/.
+      - run: npm ci
+      - run: npm ci
+        working-directory: web
+      - run: npm run typecheck
+        working-directory: web
+      - run: npm test
+        working-directory: web
+      - run: npm run build
+        working-directory: web

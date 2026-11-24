@@ -1,0 +1,15 @@
+.root { position: relative; overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 18%, #000 82%, transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 18%, #000 82%, transparent 100%); }
+.wave { transition: opacity .5s var(--ease); }
+.wave[data-hidden="true"] { opacity: 0; }
+.amp { width: 780px; transform-origin: 50% 50%; animation: amp 2.4s ease-in-out infinite; }
+.amp2 { width: 780px; transform-origin: 50% 50%; animation: amp 3.1s ease-in-out infinite; }
+.flow { animation: flow 6s linear infinite; }
+.flowRev { animation: flowRev 9s linear infinite; }
+.flat { position: absolute; left: 0; top: 0; opacity: 0; transition: opacity .5s var(--ease); }
+.flat[data-visible="true"] { opacity: 1; }
+@keyframes flow { from { transform: translateX(0); } to { transform: translateX(-390px); } }
+@keyframes flowRev { from { transform: translateX(-390px); } to { transform: translateX(0); } }
+@keyframes amp { 0%, 100% { transform: scaleY(.45); } 50% { transform: scaleY(1); } }
+@media (prefers-reduced-motion: reduce) { .amp, .amp2, .flow, .flowRev { animation: none; } .amp, .amp2 { transform: scaleY(.7); } }

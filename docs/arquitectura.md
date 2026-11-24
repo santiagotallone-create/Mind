@@ -108,6 +108,5 @@ Notas:
 
 ## Decisiones que siguen abiertas
 
-- Framework de la PWA (React, Svelte u otro): lo elige el frontend en #4 y lo registra aquí.
 - D3 y D4 (guiones y síntesis de voz): historia #7.
 - D8 (borrado y bolsón): historia #15.

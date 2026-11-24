@@ -1,0 +1,20 @@
+.root { position: relative; flex: none; }
+.shadow { position: absolute; left: 15%; bottom: -17%; width: 70%; height: 12%; border-radius: 50%;
+  background: radial-gradient(ellipse at 50% 50%, rgba(6,10,22,.35), rgba(6,10,22,0) 70%); }
+.bodyOn, .bodyOff { position: absolute; inset: 0; border-radius: 50%; }
+.bodyOn { background: radial-gradient(circle at 32% 26%, var(--c-sphere-hi) 0%, var(--c-sphere-mid) 52%, var(--c-sphere-lo) 100%);
+  box-shadow: inset -18px -22px 40px rgba(14,34,30,.55), 0 0 70px rgba(141,180,167,.10); animation: breathe 6s ease-in-out infinite; }
+.bodyOff { background: radial-gradient(circle at 32% 26%, var(--c-sphere-off-hi) 0%, var(--c-sphere-off-mid) 55%, var(--c-sphere-off-lo) 100%);
+  box-shadow: inset -16px -20px 38px rgba(6,10,22,.45); }
+.clip { position: absolute; inset: 0; border-radius: 50%; overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 16%, #000 84%, transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 16%, #000 84%, transparent 100%); }
+.idle { position: absolute; left: 0; top: 0; width: 780px; height: 200px; animation: idle 5s ease-in-out infinite; }
+.flowSlow { animation: flow 16s linear infinite; }
+.flowRevSlow { animation: flowRev 22s linear infinite; }
+.rim { position: absolute; inset: 0; border-radius: 50%; box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.10); }
+@keyframes flow { from { transform: translateX(0); } to { transform: translateX(-390px); } }
+@keyframes flowRev { from { transform: translateX(-390px); } to { transform: translateX(0); } }
+@keyframes idle { 0%, 100% { transform: scaleY(.6); } 50% { transform: scaleY(1); } }
+@keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.025); } }
+@media (prefers-reduced-motion: reduce) { .bodyOn { animation: none; } }

@@ -1,6 +1,6 @@
 # Frontend de la PWA: revisión previa y propuesta de framework
 
-Historia #4. Documento del agente frontend, escrito **antes de programar**. Estado: **respondidas por Santi las dudas 1 a 5 y 7 a 18 (el nombre y el ícono del punto 2 los entregará más adelante); pendientes la 6 y la 19 a 29**. No hay código de la app en esta rama. Cuando se aprueben las propuestas, las decisiones firmes pasan a `docs/decisiones.md` y el framework se registra en `docs/arquitectura.md` (sección «Decisiones que siguen abiertas»).
+Historia #4. Documento del agente frontend, escrito **antes de programar**. Estado (24/11): **respondidas por Santi las dudas 1 a 18 (el nombre y el ícono del punto 2 ya están en `web/public/`); framework decidido por delegación (React); pendientes de backend las dudas 19 a 29, que se resuelven en #3**. El esqueleto de #4 está en `web/`. Cuando se aprueben las propuestas, las decisiones firmes pasan a `docs/decisiones.md` y el framework se registra en `docs/arquitectura.md` (sección «Decisiones que siguen abiertas»).
 
 Se revisaron: `docs/arquitectura.md`, `docs/api.md`, `docs/decisiones.md`, `src/contract/` (zod), el issue #4, los documentos del proyecto (`requisitos-mvp`, `ux-personas-decisiones`, `ui-decisiones`, `traspaso-ui-al-analista`, `historias-mvp-olas`) y el prototipo clicable (31 pantallas).
 
@@ -17,7 +17,7 @@ Marcadas con ★ las que bloquean empezar #4 (esqueleto y sistema de diseño). L
 3. ★ **Alojamiento de la PWA. Resuelta por Santi (23/11): se sirve desde el mismo servidor de Cloud Run.** Un solo origen y un solo despliegue, sin CORS. Consecuencias: el `Dockerfile` debe construir `web/` y el servidor Fastify servir los archivos estáticos (con `index.html` como respaldo para las rutas de la app y el service worker sin caché agresiva); cada cambio del frontend redespliega el servidor. Ese cambio en el servidor y el `Dockerfile` lo coordino con backend antes de tocarlos.
 4. **Código de invitación sin pantalla. Resuelta por Santi (23/11): enlace con el código.** Santi abre una vez en su celular `https://<servidor>/#codigo=…`; la app lee el código del fragmento, registra el dispositivo con `POST /auth/device` y lo borra de la dirección (`history.replaceState`). Sin pantalla nueva. Si falta o es inválido, se muestra un mensaje breve de error (copy pendiente del UI). En la fase 2 lo reemplazan las cuentas.
 5. **Pantalla bloqueada (D11) frente a charla y cierre automático. Decisión parcial de Santi (23/11): la pantalla no debe bloquearse mientras hay una meditación activa.** Implementación: la app pide al navegador mantener la pantalla encendida (Screen Wake Lock) mientras el reproductor está abierto, y la vuelve a pedir si la app regresa a primer plano (el navegador la libera al ocultarse). Efecto: la charla de cierre puede arrancar sola, porque la app sigue visible al terminar. Quedan dos casos: si el usuario apaga la pantalla a mano o cambia de app, el audio sigue en Android (Media Session con controles en la pantalla de bloqueo) y la charla de cierre se omite sin descontar. Santi confirmó (23/11) que la pantalla también se mantiene encendida durante la charla con el coach, porque necesita la app visible para el micrófono. No verificado todavía en el Android de Santi.
-6. **Instalación.** No hay diseño para «Instalar la app». *Propuesta: sin aviso en la app en el MVP; Santi la instala desde el menú de Chrome en Android.*
+6. **Instalación. Resuelta por Santi (24/11): de acuerdo.** Sin aviso en la app en el MVP; Santi la instala desde el menú de Chrome en Android. El manifest ya declara nombre, íconos y `display: standalone` para que Chrome ofrezca instalarla.
 
 ### B. Diseño: incoherencias y huecos (UI/UX)
 
@@ -65,7 +65,9 @@ Marcadas con ★ las que bloquean empezar #4 (esqueleto y sistema de diseño). L
 | Barra de progreso | Solo lectura (sin arrastrar), coherente con «sin retroceder ni adelantar». |
 | Tests | Vitest + Testing Library + MSW (servidor simulado desde el contrato): integración de navegación (menú visible u oculto, regreso con ✕ y «‹ Atrás»), como pide #4. |
 
-## 3. Propuesta de framework
+## 3. Framework
+
+**Decidido (24/11): React 19 + Vite 8 + React Router 8 + `vite-plugin-pwa`.** Santi delegó la elección («la solución más eficiente y que requiera menos interacciones»). No impacta al backend. Lo que sigue es la comparación que la sustenta.
 
 Requisitos que pesan: PWA instalable en Android (uso diario de Santi) e iPhone; offline (service worker, IndexedDB, audios); audio en tiempo real (la lógica de voz no depende del framework); unas 30 pantallas simples con reglas de navegación (menú inferior oculto en ciertas rutas, regreso al origen); tests de integración de navegación; contrato zod en TypeScript; y que sea mantenible por Santi con ayuda de agentes.
 
@@ -87,3 +89,27 @@ Descartados: Next.js y Remix (renderizado en servidor que no se necesita), Ionic
 - Contrastes: fórmula WCAG 2.x sobre los colores de `ui-decisiones`.
 - Compatibilidad: `vite-plugin-pwa` 2.0.0 admite Vite 8; Vitest 5.1.1 también; Node ≥ 20.19 (el CI usa 22).
 - No verificado todavía: audio a 24 kHz y `AudioWorklet` en iPhone (Santi usa Android; en iPhone se probará en #9 y #10), ni el comportamiento exacto del micrófono y del audio con la pantalla bloqueada en el Android de Santi (punto 5): se probará con un prototipo mínimo al arrancar #4 y #9.
+
+
+## 5. Esqueleto implementado (historia #4)
+
+Estructura de `web/`: `src/styles` (tokens y estilos globales), `src/i18n` (catálogo `es.ts`, `t()`, formatos con `Intl`), `src/mocks` (datos simulados con los tipos del contrato), `src/components` (Icon, Sphere, VoiceLine, ProgressRing, ProgressBar, Card, Row, Button, CircleButton, DurationSelector, BottomSheet, TextField, FavoriteStar, TabBar, ScreenHeader), `src/app` (rutas, layouts, estado de demo, navegación con origen), `src/screens`, `src/test`.
+
+**Rutas.** Con menú inferior (`TabLayout`): `/`, `/planes`, `/planes/:planId`, `/sesion/:id/antes`, `/yo`, `/yo/perfil`, `/yo/perfil/editar/:campo`, `/yo/ajustes`, `/yo/ajustes/privacidad`. Sin menú (`FullLayout`): `/sesion/:id/reproductor`, `/charla`, `/charla/cierre`, `/entrevista`, `/primer-uso`, `/planes-propuestos`, `/sin-coach`, `/datos-borrados`. En desarrollo, `/mapa` lista todas las pantallas y permite simular bolsón en 0 y sin conexión.
+
+**Regreso.** Charlas y «Coach no disponible» vuelven a la pantalla de origen (`location.state.from`); la charla de cierre vuelve a Planes; la entrevista termina en Planes propuestos; la ✕ del reproductor y «‹ Atrás» de «Antes de empezar» vuelven al detalle del plan; las sesiones pendientes no se tocan.
+
+**Qué es marcador y qué es real.** Real: navegación, layouts, componentes, tokens, catálogo de textos, PWA (manifest, service worker, fuente Manrope latina precacheada), tests. Marcador, cada uno en su historia: voz en vivo (la charla solo alterna «En pausa»), reproductor (sin audio, ni Media Session, ni pantalla encendida; el tiempo es fijo), permiso de micrófono, guardado del perfil, borrado de datos, bolsón y conexión (estado simulado), favoritas.
+
+**Decisiones de implementación.**
+- Fuente: `@fontsource-variable/manrope/wght.css`; el service worker precachea solo el subconjunto latino (español e italiano).
+- Actualización de la PWA: `registerType: 'prompt'` sin aviso en pantalla; la versión nueva se activa en el siguiente arranque, nunca en medio de una meditación.
+- Contraste: borde de controles `#727B94` (3:1), aprobado el 23/11; el prototipo debe actualizarse.
+- Duración del plan en las tarjetas: mediana de los minutos sugeridos de sus sesiones (el contrato no trae la duración del plan; ver duda 22).
+- Textos provisorios por técnica en «Antes de empezar» (`techniqueIntro`), porque el contrato no trae descripción de la sesión.
+- Las pruebas de integración usan un router en memoria (`createAppRouter(initialEntries)`).
+
+**Observaciones de diseño para UI (no se modificó nada).**
+- El anillo de «Tus planes» muestra la sesión en curso («3/5» con 2 hechas), mientras que el detalle de un plan completado dice «5 de 5» y el contrato expone `sessionsDone`. Se implementó como el prototipo; conviene confirmar que es lo deseado.
+- La esfera lleva una sola cinta ondulada; en el prototipo son dos capas con fases distintas. Implementadas con una onda de dos armónicos de elaboración propia: confirmar con UI.
+- En el prototipo el padding superior (48–56 px) cubre la barra de estado simulada; en la PWA real se usa `safe-area-inset-top` más 20 px.
