@@ -43,6 +43,24 @@ export const ClientControlMessageSchema = z.discriminatedUnion("type", [
 /** limite_duracion: la charla llegó al tope de 30 minutos continuos. */
 export const EndReasonSchema = z.enum(["usuario", "cuota_agotada", "corte", "error", "inactividad", "limite_duracion"]);
 
+/**
+ * Códigos del evento `error` de la charla (distintos de los errores HTTP). La app decide por `retryable`, no por el texto.
+ * - invalid_ticket, origin_not_allowed, rate_limited: el servidor no deja entrar al WebSocket (no reintentable con el mismo ticket).
+ * - start_failed: el proveedor de voz no conectó; reintentable y no abre el periodo del bolsón.
+ * - talk_not_found: la charla que se quiere retomar ya no existe.
+ * - invalid_message: la app mandó un mensaje de control que el servidor no entiende.
+ * - provider_error: el proveedor de voz falló en plena charla.
+ */
+export const VoiceErrorCodeSchema = z.enum([
+  "invalid_ticket",
+  "origin_not_allowed",
+  "rate_limited",
+  "start_failed",
+  "talk_not_found",
+  "invalid_message",
+  "provider_error",
+]);
+
 /** Eventos del servidor (tramas de texto). */
 export const ServerEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("ready"), talkId: IdSchema }),
@@ -54,10 +72,19 @@ export const ServerEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("transcript"), role: z.enum(["user", "coach"]), text: z.string() }),
   /** El coach está armando un plan: la app muestra «Armando tu plan…». */
   z.object({ type: z.literal("plan_creating") }),
-  z.object({ type: z.literal("plan_created"), planId: IdSchema }),
+  /**
+   * El coach terminó de crear un plan. Trae el nombre y el número de sesiones para mostrar la tarjeta sin otra petición.
+   * Tras una reconexión puede repetirse: la app descarta los que ya tiene por `planId`.
+   */
+  z.object({ type: z.literal("plan_created"), planId: IdSchema, name: z.string(), sessionsTotal: z.number().int().min(1) }),
+  /**
+   * El coach cerró la entrevista inicial. `planIds` son los planes que creó en ella (normalmente dos): la app los muestra juntos
+   * en «Planes propuestos». Hasta las Olas 2 y 3 (crear_plan) el servidor no lo emite.
+   */
+  z.object({ type: z.literal("interview_completed"), planIds: z.array(IdSchema) }),
   /** El coach sugirió consultar a un profesional: la app muestra ese estado. */
   z.object({ type: z.literal("professional_help") }),
-  z.object({ type: z.literal("error"), code: z.string(), retryable: z.boolean() }),
+  z.object({ type: z.literal("error"), code: VoiceErrorCodeSchema, retryable: z.boolean() }),
   /** La charla terminó. cuota_agotada: el coach ya se despidió hablando. */
   z.object({ type: z.literal("ended"), reason: EndReasonSchema }),
 ]);
@@ -103,6 +130,7 @@ export const CoachToolsSchema = z.discriminatedUnion("name", [
   z.object({ name: z.literal("marcar_entrevista_completa"), arguments: z.object({}) }),
 ]);
 
+export type VoiceErrorCode = z.infer<typeof VoiceErrorCodeSchema>;
 export type TalkType = z.infer<typeof TalkTypeSchema>;
 export type VoiceTicketRequest = z.infer<typeof VoiceTicketRequestSchema>;
 export type ServerEvent = z.infer<typeof ServerEventSchema>;

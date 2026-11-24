@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import type { TalkType } from "../contract/index.js";
+import type { Language, TalkType } from "../contract/index.js";
 import type {
   DataStore,
   DeviceRecord,
@@ -29,10 +29,12 @@ export class SupabaseStore implements DataStore {
     return new SupabaseStore(createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } }));
   }
 
-  async createUserWithDevice(input: { secretHash: string; deviceName?: string }) {
+  async createUserWithDevice(input: { secretHash: string; deviceName?: string; timezone?: string; locale?: Language }) {
     const { data, error } = await this.db.rpc("register_device", {
       p_secret_hash: input.secretHash,
       p_device_name: input.deviceName ?? null,
+      p_timezone: input.timezone ?? null,
+      p_locale: input.locale ?? null,
     });
     const row = first<{ new_user_id: string; new_device_id: string }>(data, error, "register_device");
     return { userId: row.new_user_id, deviceId: row.new_device_id };

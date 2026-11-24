@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { TalkType } from "../contract/index.js";
+import type { Language, TalkType } from "../contract/index.js";
 import type {
   DataStore,
   DeviceRecord,
@@ -53,12 +53,14 @@ export class MemoryStore implements DataStore {
   readonly transcripts = new Map<string, TranscriptTurn[]>();
   readonly memory: (MemoryEntry & { userId: string })[] = [];
 
-  async createUserWithDevice(input: { secretHash: string; deviceName?: string }) {
+  async createUserWithDevice(input: { secretHash: string; deviceName?: string; timezone?: string; locale?: Language }) {
     const userId = randomUUID();
     const deviceId = randomUUID();
-    this.users.set(userId, { id: userId, timezone: "Europe/Rome", locale: "es" });
+    const timezone = input.timezone ?? "Europe/Rome";
+    const locale = input.locale ?? "es";
+    this.users.set(userId, { id: userId, timezone, locale });
     this.profiles.set(userId, { goals: "", experience: null, currentState: "", interviewCompletedAt: null });
-    this.settings.set(userId, { locale: "es", timezone: "Europe/Rome", voiceSpeed: 1 });
+    this.settings.set(userId, { locale, timezone, voiceSpeed: 1 });
     this.devices.set(deviceId, { id: deviceId, userId, secretHash: input.secretHash, revokedAt: null });
     return { userId, deviceId };
   }

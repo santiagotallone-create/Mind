@@ -1,4 +1,4 @@
-import type { TalkType } from "../contract/index.js";
+import type { Language, TalkType } from "../contract/index.js";
 
 export type Experience = "principiante" | "algo_practica" | "mucha_practica";
 
@@ -19,7 +19,13 @@ export interface DeviceRecord {
 
 export interface UsersStore {
   /** Crea un usuario nuevo con su dispositivo, su perfil vacío y sus ajustes por defecto. */
-  createUserWithDevice(input: { secretHash: string; deviceName?: string }): Promise<{ userId: string; deviceId: string }>;
+  createUserWithDevice(input: {
+    secretHash: string;
+    deviceName?: string;
+    /** Zona IANA y idioma que envía la app al registrarse. Si faltan: Europe/Rome y es. */
+    timezone?: string;
+    locale?: Language;
+  }): Promise<{ userId: string; deviceId: string }>;
   getDevice(deviceId: string): Promise<DeviceRecord | null>;
   touchDevice(deviceId: string, at: Date): Promise<void>;
   getUser(userId: string): Promise<UserRecord | null>;
